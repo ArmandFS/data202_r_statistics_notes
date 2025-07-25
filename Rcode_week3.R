@@ -101,3 +101,56 @@ median(na.rm=TRUE, x=v)
 #By a whole lot of optional arguments
 args(legend)
 
+
+#in these circumstances what is often done is that we use positional matching for
+#the firt required arguments which occupy the first argument slots
+#then explicit matching using names for the rest
+median(v, na.rm=TRUE)
+
+#R allows you to be a little lazy when specifying argument names
+## The following are all valid
+median(v, n=TRUE)
+median(v, na=TRUE)
+median(v, na.=TRUE)
+median(v, na.r=TRUE)
+median(v, na.rm=TRUE)
+#but its best to write out the full name of every argument
+
+#if you were to define an object with any of these names, R would break 
+#these are reserved words and names
+?reserved
+
+#this will cause an error and break R
+Inf <- 5
+
+#but with lower case i, this will not happen
+inf <- 5
+inf
+
+#scope
+#sqrt is not a reserved word, so we can define it
+sqrt <- 6
+sqrt
+
+#but to execute the sqrt function, we have to use brackets
+sqrt(10)
+
+#but in reality we can define a function called sqrt and have it do whatever
+#sqrt <- function(x) {
+ # return(x+2)
+#}
+#but this is not good so better to not create a function with the same word
+
+#the search() function will give a hierarchy of global environments
+search()
+
+#we can see the set of objects in Global Environment using the ls() command
+ls()
+
+#to see the contents of package:base, we can see:
+ls("package:base")
+
+#if a reserved function is buried then we can use base:: to call it
+base::sqrt(4)
+
+
