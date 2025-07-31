@@ -1,0 +1,409 @@
+---
+title: "Assignment 1"
+author: "Armand Surbakti"
+date: "2025-07-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment 1 DATA472
+
+**Question 1**
+
+Classify the following variables as categorical or numerical and further classify as logical, nominal, ordinal, binary, continuous, or discrete. ALSO give the R class AND the R type that corresponds to each.
+
+**My Answer:**
+
+a.  Number of adults living in the same household.
+
+-   Type: Numerical
+-   Further classified as: Discrete
+-   R Class: either numeric/integer
+-   R Type: either double/integer
+
+b.  Preferred political party
+
+-   Type: Categorical
+-   Further classified as: Nominal
+-   R Class: either factor/character
+-   R Type: character
+
+c.  Whether an individual voted in the most recent election.
+
+-   Type: Categorical
+-   Further classified as: Binary
+-   R Class: logical or factor
+-   R Type: logical
+
+d.  Water temperature
+
+-   Type: Numerical
+-   Further classified as: Continuous
+-   R Class: numeric
+-   R Type: double
+
+e.  Self-reported level of perceived stress, from none to very high
+
+-   Type: Categorical
+-   Further classified as: Ordinal
+-   R Class: ordered factor
+-   R Type: integer
+
+**Question 2**
+
+Ensure that your code for Q2a-c and Q2e-f will work as intended no matter what the actual contents of y, a and z are.
+
+Run the following code to set up an R object called y:
+
+```{r}
+y <- c("Fred" = 5,"Wilma" = 1,"Betty" = 8,"Barney" = 3)
+
+```
+
+a.  Write R code that will extract the values of the elements of y that are greater than 3
+
+```{r}
+y[y>3]
+
+```
+
+b.  Write R code that will find entries of y that are equal to 3 and extract the names of those entries.
+
+```{r}
+
+names(y[y==3])
+
+```
+
+c.  Write R code that will extract the position of the the maximum value of y
+
+```{r}
+which.max(y)
+```
+
+d.  Write R code that will create the following objects (as shown in the document) Display the values of a and z. NOTE: make sure a is defined as a simple vector, not as a 1 × 3 array
+
+```{r}
+
+a <-c(5, 2, 3) 
+a
+
+```
+
+```{r}
+z <-matrix(c(2, 0 , 5, 1, 1, 2), nrow=3, ncol=2)
+
+z
+```
+
+e.  Write R code that uses a built-in R function to find the transpose of the matrix z and stores the transpose in a new object called tz. Make sure to display the final tz object.
+
+```{r}
+tz <- t(z)
+tz
+```
+
+**Question 3**
+
+Write a function in R that computes the dot product between two vectors. The function should be called dot_product and it should have the following arguments:
+
+-   x first vector
+-   y second vector
+
+The function should return a single numeric value with the dot product between the two vectors (x and y)
+
+The dot product is the sum of the products of the corresponding entries of the two vectors.
+
+The function should be able to handle NA values i.e. it should compute the dot product using only the positions where both elements are not NA If there are no valid pairs of values to compute the product, return NA and display a warning message: ’no valid pairs of values to compute the product.
+
+a.  Give the code of your function
+
+```{r}
+dot_product <-function(x, y){
+  #logical vector indicating where both x and y are not NA
+  valid <- !is.na(x) & !is.na(y)
+  
+  #if no valid pairs, return NA and state a warning
+  if (all(!valid)) {
+    warning("no valid pairs of values to compute the product")
+    return(NA_real_)
+  }
+  
+  #finally compute the dot product using valid entries
+  sum(x[valid] * y[valid])
+}
+
+```
+
+b.  Run the following code to create two vectors. Demonstrate your function by computing the dot product between vectors a and b and show the output.
+
+```{r}
+
+a <- c(NA,2,NA)
+b <- c(1, NA, 5)
+
+dot_product(x=a, y=b)
+```
+
+c.  Run the following code to create another two vectors. Demonstrate your function by computing the dot product between vectors a and b and show the output.
+
+```{r}
+
+a <- c(5,2,1,NA,1)
+b <- c(1,NA,5,2,4)
+
+dot_product(x=a, y=b)
+
+```
+
+d.  Modify your function so that it checks whether the user has entered two vectors of the same length. If not, return an error saying "vectors must be the same length". Give the R code of the modified function
+
+```{r}
+
+dot_product <-function(x, y){
+  #modified version of the function
+  #check if vectors are the same length
+  if (length(x) != length(y)) {
+    stop("vectors must be the same length")
+  }
+
+  #logical vector indicating where both x and y are not NA
+  valid <- !is.na(x) & !is.na(y)
+  
+  #if no valid pairs, return NA and state a warning
+  if (all(!valid)) {
+    warning("no valid pairs of values to compute the product")
+    return(NA_real_)
+  }
+  
+  #finally compute the dot product using valid entries
+  sum(x[valid] * y[valid])
+}
+
+```
+
+e.  Test your modified function using a defined in part (c) and b = c(1,NA,5,2) and show the output. Remember to include the R code chunk option error=TRUE to ensure any error messages are shown in the output and the file does not crash when trying to knit.
+
+```{r, error=TRUE}
+#test with these 2 new vectors
+a <- c(5,2,1,NA,1)
+b = c(1,NA,5,2)
+
+
+dot_product(x=a, y=b)
+
+
+```
+
+**Question 4**
+
+a.  Write the R code to read the dinosaurs.csv dataset into R and store it in a dataframe called dinos
+
+```{r}
+dinos <- read.csv('dinosaurs.csv')
+```
+
+b.  Write R code to determine the number of rows and columns of dinos and show the output.
+
+```{r}
+#we can use the dim function to show rows and 
+dim(dinos)
+```
+
+c.  Write R code to show the first FOUR rows of dinos and show the output.
+
+```{r}
+head(dinos, 4)
+
+```
+
+d.  The variable diet contains missing values, but they are not coded as NA. Instead, they appear as empty strings (“ “). Write R code to replace all empty strings in the diet variable with NA, and count how many missing values there are.
+
+```{r}
+#replace empty strings with NA with this code below
+dinos$diet[dinos$diet == " "] <- NA
+
+#this code is used to run to count and check for any missing values
+sum(is.na(dinos$diet))
+```
+
+e.  Write R code to check whether the variable diet is being treated as a factor and show the output. If it is not treated as a factor, write R code to create a new factor from the diet variable called diet_factor that has levels in the order herbivorous, carnivorous, omnivorous
+
+```{r}
+#to check if diet is a factor
+is.factor(dinos$diet)
+```
+
+This is not a factor so we will now convert it one
+
+```{r}
+dinos$diet_factor <- factor(dinos$diet,
+                            levels = c("herbivorous", 
+                                       "carnivorous", 
+                                       "omnivorous"))
+#we can use str to confirm if its a factor or not
+str(dinos$diet_factor)
+```
+
+f.  Use the base R plot functions to draw side-by-side boxplots of length_m by the new factor diet_factor and include units in the appropriate plot label.
+
+```{r, fig.width=7, fig.height=6}
+boxplot(length_m ~ diet_factor,
+        data=dinos,
+        main="Dinosaur Lengths by Diet",
+        ylab="Length (meters)",
+        xlab = "Diet Type",
+        col = "pink")
+```
+
+**Question 5**
+
+Assuming x and y are vectors of length 3, explain the difference between the actions of the following five statements:
+
+-   x=y
+
+-   x==y
+
+-   x\<-y
+
+-   x\<(-y)
+
+-   xˆ(-y)
+
+**My Answer**
+
+-   x=y is equivalent to x \<- y, as it assigns the values of y to x. In functions, it is used to specify the parameters of the functions
+-   x==y is an element-wise comparison, which checks if each element of x is equal to the corresponding element in y.
+-   x\<-y is the standard way to assign y's values to x in base r.
+-   x\<(-y) is an element-wise comparison of x with negative y. This then compares each element of x to the negative of the corresponding element in y.
+-   x\^(-y) is an element-wise exponentiation with negative exponents. This raises each element of x to the power of negative of the corresponding element in y.
+
+**Question 6**
+
+The starwars data set is available in the dplyr package. It contains the original data from SWAPI, the Star Wars API.
+
+You can assume the the dplyr package has already been installed on the submission system, but make sure your submitted code loads the dplyr package.
+
+If you want to find out more about the dataset while you are preparing your submission, you can load the package on your own machine and view the help file for the package using ?starwars.
+
+Load the dplyr package, and make the following graphs. Give the appropriate R code for each, making sure each one is labelled appropriately. (Give measurement units where appropriate!)
+
+```{r}
+library(dplyr)
+head(starwars)
+```
+
+a.  Draw a histogram of the height of the characters
+
+```{r}
+hist(starwars$height,
+     main = "Height Distribution of Star Wars Characters",
+     xlab = "Height (cm)",
+     ylab = "Frequency",
+     col = "pink")
+
+```
+
+b.  Draw a scatterplot of height (on the horizontal x-axis) by mass (on the vertical y-axis). Comment on the main features of the graph in 1 sentence.
+
+```{r}
+
+plot(starwars$height, starwars$mass, pch=16, col="purple",
+     xlab="Height (cm)", 
+     ylab="Mass (kg)",
+     main="Height-Mass Distribution"
+     )
+
+```
+
+**My Comment based on the scatterplot:**
+
+Almost all of the characters fall below 200kg in mass regardless of height, except for one notable outlier that is all alone at around 1,400kg standing out significantly from the rest.
+
+c.  Draw side-by-side boxplots of height by gender. Make the boxes blue
+
+```{r, fig.width=7, fig.height=6}
+
+boxplot(height ~ gender,
+        data = starwars,
+        col = "blue",
+        xlab = "Gender",
+        ylab = "Height (cm)",
+        main = "Height distribution by Gender"
+        )
+```
+
+d.Draw side-by-side barplots of the counts of characters categorised by gender and homeworld. Make sure you include a legend. To simplify the plot and avoid clutter from categories with very few cases, we will use a new variable called homeworld2. This variable is a modified version of homeworld where any category with only one observation has been grouped into a new category called Other. Make sure to run the following code to create homeworld2 before running your plot code:
+
+```{r, fig.width=9, fig.height=6}
+Num_homeworld <- table(starwars$homeworld)
+Cat1entri <- names(Num_homeworld)[Num_homeworld == 1]
+starwars$homeworld2 <- ifelse(starwars$homeworld %in% Cat1entri, "Other", starwars$homeworld)
+
+
+
+#this code here will create a two-way table of counts (gender x homeworld2)
+counts <- table(starwars$gender, starwars$homeworld2)
+
+#now lets create the side-by-side barplot (also including legends)
+barplot(counts,
+        beside = TRUE,
+        col = c("skyblue", "lightgreen"),
+        legend = TRUE,
+        args.legend = list(title = "Gender", x = "topright"),
+        xlab = "Homeworld",
+        ylab = "Count",
+        main = "Character Counts by Gender and Homeworld",
+        las= 2,
+        cex.names = 0.7,
+        cex.axis = 1.0,
+        cex.lab = 1.0,
+        cex.main = 1.1,
+)
+```
+
+**Question 7**
+
+The following code has 4 errors in it. Please find them and fix them (1 mark each for finding, 1 mark each for fixing). If you can’t fix one or more of the errors, then use “eval=FALSE” at the start of your code chunk to prevent it from breaking the rest of your assignment, and comment below the code on what the error was that you identified. Line numbers are provided to help you identify parts of the code
+
+```{r, eval=FALSE}
+
+# Define x
+x <- matrix(c(3,0,5,6,NA 3), ncol = 2)
+# Store the second column of x as a new object called y
+y <- x[2]
+# Calculate the mean value of y after excluding NA entries
+mean_y <- mean(y, na.remove=TRUE)
+# Fetch the entries of y that are bigger of equal than 2
+y[y => 2]
+
+```
+
+**The Errors** 
+
+1. In the first line of code, the error is that there's no comma after NA, so R thinks that "NA 3" is a variable, but really it should just be NA and 3 separately.
+
+2.  In the second line of code, 'x[2]' does not extract the second column, instead it extracts the second element in column-major order.
+
+3.  In the third line, to remove NA entries, should've used `na.rm` instead of `na.remove`. `na.remove` is an invalid argument
+
+4.  In the fourth line, it uses the wrong comparison operator. Instead of `=>`, use `>=` instead.
+
+**My Fixes**
+
+```{r}
+#Define x
+x <- matrix(c(3,0,5,6,NA,3), ncol = 2)
+
+# Store the second column of x as a new object called y
+y <- x[,2]
+
+# Calculate the mean value of y after excluding NA entries
+mean_y <- mean(y, na.rm=TRUE)
+
+# Fetch the entries of y that are bigger of equal than 2
+y[y >= 2]
+```
