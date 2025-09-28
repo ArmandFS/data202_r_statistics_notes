@@ -1,0 +1,478 @@
+---
+title: "Assignment 2"
+author: "Armand Surbakti"
+date: "2025-09-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Assignment 2
+
+Name: Armand Surbakti 
+
+Student ID: 300680133
+
+### PART 1
+
+**Question 1** 
+
+a. Write R code to read the Netflix.csv dataset into R and store in a data frame called `netflix`.
+
+```{r}
+netflix <- read.csv("Netflix.csv", stringsAsFactors = FALSE)
+```
+
+b.  Use base R to create a new date_added2 column by converting the column date_added into R Date format. After that, display the first six values of the new variable.
+
+```{r}
+#this code here will convert date_added2 into date format
+netflix$date_added2 <- as.Date(netflix$date_added, format = "%d-%b-%y")
+head(netflix$date_added2)
+```
+
+c.  Use base R and the date_added2 field to extract the day of the week on which each TV show or movie was added to Netflix, formatted as full names of the days with capital first letters. Store the results as a new column in the `netflix` dataset called `weekday_added`. Then convert the new column, `weekday_added`, into a factor with the levels rdered from Monday to Sunday. After that, display the first six values of the new variable weekday_added
+
+```{r}
+#extract weekday names (such as monday, tuesday)
+netflix$weekday_added <- weekdays(netflix$date_added2)
+
+#convert to factor 
+netflix$weekday_added <- factor(netflix$weekday_added,
+                                levels = c("Monday", "Tuesday", "Wednesday",
+                                           "Thursday", "Friday", "Saturday", "Sunday"))
+#display first six values
+head(netflix$weekday_added)
+```
+
+d.  Using base R, count how many TV shows or movies in the dataset are classified as dramas (Hint: Use the genres variable)
+
+```{r}
+#this will count rows where 'genres' contain the word 'Dramas'
+sum(grepl("\\bDramas\\b", netflix$genres))
+```
+
+e.  Remove all entries without directors from the Netflix dataset. Then using the tapply() or by() function, find the directors with the most Movies and TV Shows, respectively, in the remaining dataset. (Hint: use the type variable). Display the name and number of titles for the directors with the most Movies and the director with the most TV shows.
+
+```{r}
+#let's remove rows where director is NA or empty
+netflix_clean <- netflix[netflix$director != "" & !is.na(netflix$director), ]
+
+
+#count number of titles per director by type using tapply()
+#movies
+movie_counts <- tapply(netflix_clean$type == "Movie", netflix_clean$director, sum)
+movie_counts <- movie_counts[!is.na(movie_counts)]  
+movie_counts <- movie_counts[movie_counts > 0]      #keep directors with at least 1 movie
+
+#TV Shows
+tv_counts <- tapply(netflix_clean$type == "TV Show", netflix_clean$director, sum)
+tv_counts <- tv_counts[!is.na(tv_counts)]
+tv_counts <- tv_counts[tv_counts > 0]
+
+```
+
+Next, this code block will find directors with the most titles on both movies and tv shows
+
+```{r}
+#Director with most Movies
+max_movie_director <- names(movie_counts)[which.max(movie_counts)]
+max_movie_count <- max(movie_counts)
+
+#Director with most TV Shows
+max_tv_director <- names(tv_counts)[which.max(tv_counts)]
+max_tv_count <- max(tv_counts)
+
+#Display results using the cat functions
+cat("Director with most Movies:", max_movie_director, "with", max_movie_count, "titles\n")
+cat("Director with most TV Shows:", max_tv_director, "with", max_tv_count, "titles\n")
+
+```
+
+**Question 2**
+
+a. Continue using the `netflix` dataset from the previous question a. Use `dpylr` to create a summary table called `tab_directors` that contains the following information for each director from the Netflix dataset:
+
+-   Num = total number of titles (movies and TV shows)
+
+-   Perc_movies = percentage of titles by that director that are movies (rounded to two decimal places and shown as a percentage value from 0 to 100)
+
+-   Range_release_year = range of release years, separated by a hyphen (“-”)
+
+-   Mean_duration = mean duration of the titles
+
+Exclude the titles without a listed director. Arrange the table in descending order of the variable Num and include only the directors with more than 8 titles. Display only the final table, and not any intermediate tables you created
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+#drop missing directors
+netflix2 <- netflix[!(is.na(netflix$director) | netflix$director == ""), ]
+
+#split directors so that it only counts 1 director instead of multiple directors
+dirs_list <- strsplit(as.character(netflix2$director), ",\\s*")   # list of character vectors
+netflix_expanded <- netflix2[rep(seq_len(nrow(netflix2)), lengths(dirs_list)), ]
+netflix_expanded$director <- trimws(unlist(dirs_list))
+
+
+#summarise per individual director
+tab_directors <- netflix_expanded %>%
+  group_by(director) %>%
+  summarise(
+    Num = n(),
+    Perc_movies = round(100 * mean(type == "Movie", na.rm = TRUE), 2),
+    Range_release_year = if (all(is.na(release_year))) NA_character_ 
+                         else paste0(min(release_year, na.rm = TRUE), "-", max(release_year, na.rm = TRUE)),
+    Mean_duration = mean(as.numeric(gsub("\\D", "", duration)), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(Num > 8) %>%
+  arrange(desc(Num))
+
+#view the result
+tab_directors
+```
+
+b. Use dplyr to create a new data frame named df_top_directors. This data frame should extract the titles in the netflix dataset that were directed by the directors listed in the final summary tab_directors from part (a). It should only contain titles with ratings “TV-MA” or “TV-14”. df_top_directors should include only the following variables: show_id, type, title, director, country, release_year, rating and duration.
+
+```{r}
+#create a df_top directors variable
+df_top_directors <- netflix %>%
+  filter(director %in% tab_directors$director, 
+         rating %in% c("TV-MA", "TV-14")) %>%
+  select(show_id, type, title, director, country, release_year, rating, duration)
+```
+
+```{r}
+#show the new dataframe
+df_top_directors
+```
+
+c. Using `dpylr` and `ggplot2`, draw a line plot of release year by number of titles, using the data from df_top_directors, faceted by rating (1 panel per rating)
+
+```{r}
+#call the ggplot2 library
+library(ggplot2)
+```
+
+Now make a df_plot variable and the plot using ggplot
+```{r fig.width=10, fig.height=6}
+#create df_plot and plot using ggplot
+df_plot <- df_top_directors %>%
+  group_by(release_year, rating) %>%
+  summarise(num_titles = n(), .groups = "drop")
+
+ggplot(df_plot, aes(x = release_year, y = num_titles, group = rating, color = rating)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ rating) +
+  labs(title = "Number of Titles per Year (Top Directors, by Rating)",
+       x = "Release Year",
+       y = "Number of Titles") +
+  theme_minimal()
+  
+```
+
+d. Using `dpylr`, add a column to `df_top_directors` that is a logical vector indicating for each title whether it is more than 2 hours long or not
+
+```{r}
+df_top_directors <- df_top_directors %>%
+  mutate(
+    #convert to a number
+    duration_minutes = as.numeric(gsub("min", "", duration)),
+    #this extracts numeric minutes
+    over_2_hours = duration_minutes > 120 
+    #TRUE if > 120 min
+  )
+```
+Show the new top_directors column
+```{r}
+head(df_top_directors$over_2_hours)
+```
+
+e. Using `ggplot2` to create a bar plot of the numbers of entries in `df_top_directors` that are up to 2 hrs long and more than 2 hrs long. Include appropriate axis labels.
+
+```{r fig.width=10, fig.height=6}
+df_top_directors %>%
+  #this filter will keep only movies (drop NAs from TV shows if you want)
+  filter(!is.na(over_2_hours)) %>%
+  ggplot(aes(x = over_2_hours)) +
+  geom_bar(fill = "steelblue") 
+  #this section will add labels to the bar plot
+  labs(
+    title = "Number of movies by durationg category",
+    x = "Duration(> 2 hours = TRUE, ≤ 2 hours = FALSE)",
+    y = "Number of Titles"
+  ) +
+  theme_minimal()
+
+```
+
+**Question 3**
+
+a. Using ggplot2, draw a histogram of the height of the characters using 11 bins. Make sure the plot is labelled appropriately, with measurement units. Remove individuals with missing heights before creating the plot.
+
+```{r fig.width=10, fig.height=6}
+#remove missing heights and plot histogram
+starwars %>%
+  filter(!is.na(height)) %>%
+  ggplot(aes(x = height)) +
+  geom_histogram(bins = 11, fill = "steelblue", color = "black") +
+  labs(
+    title = "Distribution of Character Heights in Star Wars",
+    x = "Height (cm)",
+    y = "Number of Characters"
+  ) +
+  theme_minimal()
+
+```
+
+
+b. Using ggplot2, draw a scatterplot with jitter of height (on the x-axis) by mass (on the y-axis), with points coloured by sex. Exclude any individuals with missing values from the plot. You will see that the plot shows a very clear outlier. Redo the plot without the outlier (display both plots, with and without the outlier)
+
+```{r fig.width=10, fig.height=6}
+
+#remove missing values first
+sw_clean <- starwars %>%
+  filter(!is.na(height), !is.na(mass), !is.na(sex))
+
+#scatterplot with jitter (with outlier)
+p1 <- ggplot(sw_clean, aes(x = height, y = mass, color = sex)) +
+  geom_jitter(width = 5, height = 5, alpha = 0.7) +
+  labs(
+    title = "Star Wars Characters: Height vs Mass (with outlier)",
+    x = "Height (cm)",
+    y = "Mass (kg)"
+  ) +
+  theme_minimal()
+p1
+```
+Now I will reado part b. without the outlier, by removing it first and then replotting it:
+```{r fig.width=10, fig.height=6}
+sw_no_outlier <- sw_clean %>%
+  filter(mass < 500)
+
+#scatterplot with no outlier
+p2 <- ggplot(sw_no_outlier, aes(x = height, y = mass, color = sex)) +
+  geom_jitter(width = 5, height = 5, alpha = 0.7) +
+  labs(
+    title = "Star Wars Characters: Height vs Mass (without outlier)",
+    x = "Height (cm)",
+    y = "Mass (kg)"
+  ) +
+  theme_minimal()
+
+#display 2nd plot 
+p2
+
+```
+
+### Part 2
+
+
+**Question 1**
+
+In answering the questions below, give R or SQL code as required, and any relevant output
+
+a. Use R code to remove any existing file with the name iucn.sqlite from the file system and then create and connect to a SQLite database using the database filename iucn.sqlite. Keep using that same connection for the rest of the assignment.
+
+```{r}
+library(DBI)
+library(RSQLite)
+```
+
+```{r}
+#remove existing file if it exists
+if (file.exists("iucn.sqlite")) {
+  file.remove("iucn.sqlite")
+}
+#create a connection with SQLite 
+con <- dbConnect(RSQLite::SQLite(), "iucn.sqlite")
+#check connection
+con
+```
+
+b. Use R code to read in the files iucn_taxon.csv, iucn_distribution.csv, and iucn_vernacular.csv as objects `taxon`, `distribution`, and `vernacular`. They must be read using UTF-8 encoding. The taxon and distribution files do have headers; the vernacular file does not have  headers. 
+
+```{r}
+#read iucn_tax.csv (has headers)
+taxon <- read.csv("iucn_taxon.csv", 
+                  fileEncoding = "UTF-8",
+                  header=TRUE,
+                  stringsAsFactors = FALSE)
+
+#read iucn_distribution.csv (has headers)
+distribution <- read.csv("iucn_distribution.csv", 
+                         fileEncoding = "UTF-8", 
+                         header = TRUE,
+                         stringsAsFactors = FALSE)
+
+#read iucn_vernacular.csv
+vernacular <- read.csv("iucn_vernacular.csv",
+                       fileEncoding = "UTF-8",
+                       header = FALSE,
+                       stringsAsFactors = FALSE)
+```
+
+Let's check the first few rows
+```{r}
+head(taxon)
+head(distribution)
+head(vernacular)
+```
+
+
+
+c. Use R code to copy the datafrom the `taxon` and `distribution` tables from R into two new tables called `taxon` and `distribution` in the `SQLite` database.
+
+
+```{r}
+#this will write taxon dataframe into SQLite
+dbWriteTable(con, "taxon", taxon, overwrite=TRUE)
+
+#write distribution dataframe into SQLite
+dbWriteTable(con, "distribution", distribution, overwrite=TRUE)
+```
+i can check if the tables exist or not:
+```{r}
+dbListTables(con)
+```
+Optionally, i can  preview the first few rows from the database to confirm that the R code to copy was succesful
+```{r}
+dbGetQuery(con, "SELECT * FROM taxon LIMIT 5")
+dbGetQuery(con, "SELECT * FROM distribution LIMIT 5")
+```
+
+d. Use R code to look at a small subset of the data from each of the `distribution` and `vernacular` tables and do any other checks you need to answer this question. For each table, state whether we could set ID to be a `Primary Key` or not.
+```{r}
+#check for distribution small subset
+#this code will look at a small subset
+head(distribution)
+#check if id is unique
+length(unique(distribution$id)) == nrow(distribution)
+#check for any missing values
+any(is.na(distribution$id))
+```
+
+Based off the output, All IDs are unique and it contains no missing values. So for the distribution table, ID can be set as a primary key because it is unique and not missing.
+
+We can do the same thing for vernacular
+```{r}
+#check the same subset 
+head(vernacular)
+length(unique(vernacular$V1)) == nrow(vernacular)
+any(is.na(vernacular$V1))
+```
+
+For vernacular, IDs are not unique, and there are no missing values, but uniqueness is required for a primary key. This means that vernacular table, V1 cannot be a primary key because multiple rows share the same taxon ID.
+
+e. Use SQL code to set up a new table called `vernacular`, containing the columns `id`, `is_preferred_name`,`language`, and `vernacular_name`
+```{r}
+
+#use this SQL code to create the table
+sql_create_vernacular <- "
+  CREATE TABLE vernacular (
+      id INTEGER,
+      is_preferred_name BOOLEAN,
+      language TEXT,
+      vernacular_name TEXT
+  );
+"
+
+
+#execute sql command
+dbExecute(con, sql_create_vernacular)
+```
+
+There is an error here because I've created the vernacular table already. Let's view the new empty table to see if its there
+```{r}
+DBI::dbListFields(con, "vernacular")
+```
+
+f. Use R code to name the columns as "id", "is_preferred_name","language" and "vernacular_name" and `append` the contents of the R data frame `vernacular` to the SQL table `vernacular`
+
+```{r}
+#this code will rename the columns of the R dataframe
+colnames(vernacular) <- c("id", "is_preferred_name", "language", "vernacular_name")
+
+#append the data into the existing SQL table
+DBI::dbWriteTable(con, "vernacular", vernacular, append = TRUE, row.names = FALSE)
+```
+
+next i will check if this has worked by viewing 5 rows of the table
+
+```{r}
+DBI::dbGetQuery(con, "SELECT * FROM vernacular LIMIT 5")
+```
+
+g. Use SQL to `delete` entries in the `taxon` table that contain an underscore as `part of` the `taxon_entry_id` field (such as "158236_1")
+
+```{r}
+#delete rows where taxon_entry_id contains an underscore
+sql_delete <- "
+      DELETE FROM taxon
+      WHERE taxon_entry_id LIKE '%\\_%' ESCAPE '\\';
+"
+
+#and then execute the SQL command
+DBI::dbExecute(con, sql_delete)
+
+```
+
+h. Use SQL to join the distribution and vernacular tables on id and find the threat status of the species with vernacular name “New Zealand Fur Seal”. It doesn’t matter what type of join you use. Keep the id, threat_status and vernacular_name of the entry. (Hint: you’ll need to say which
+table’s ID field you want to keep.) Store the output as an R object called iucn and then use R code to display it as output. 
+
+
+```{r}
+
+#the SQL query to join distribution and vernacular
+iucn <- dbGetQuery(con, "
+  SELECT distribution.id, distribution.threat_status, vernacular.vernacular_name
+  FROM distribution 
+  LEFT JOIN vernacular 
+    ON distribution.id = vernacular.id
+  WHERE vernacular.vernacular_name = 'New Zealand Fur Seal';
+")
+
+#display results
+iucn
+```
+
+PS. For some reason my dataset does not contain New Zealand Fur Seal, so that returns 0 rows. I'm sorry I was stuck in this problem for a while.
+
+i. Use SQL to create a summary table and a subquery to populate that table by counting the number of entries in taxon for each kingdom, and arrange them in descending order of number of entries. Make sure the resulting table contains the kingdom names and the number of entries in each kingdom. Then use another SQL query to fetch that summary table so that it is displayed in the output of your assignment.
+
+
+```{r}
+#create summary table
+dbExecute(con, "
+  CREATE TABLE kingdom_summary (
+      kingdom TEXT,
+      entry_count INTEGER
+  );
+")
+```
+```{r}
+#populate summary table using subquery
+dbExecute(con, "
+  INSERT INTO kingdom_summary (kingdom, entry_count)
+  SELECT kingdom, COUNT(*) as entry_count
+  FROM taxon
+  GROUP BY kingdom
+  ORDER BY entry_count DESC;
+")
+```
+```{r}
+#fetch and display using summary table
+kingdom_results <- dbGetQuery(con, "
+  SELECT kingdom, entry_count
+  FROM kingdom_summary
+  ORDER BY entry_count DESC;
+")
+
+kingdom_results
+```
