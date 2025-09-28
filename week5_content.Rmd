@@ -1,0 +1,236 @@
+---
+title: "Week 5 DATA202 Notes"
+author: "Armand Surbakti"
+date: "2025-08-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## DATA202 [Week 5 Notes]
+
+Tidyverse is a collection of packages which can be used for data science with R. Before working with data, we need to load it and tidy it up. After that we do multiple analyses which need further transformations
+
+We can use the `dplyr` package, which extends base R giving us alternative ways to achieve some of our common tasks
+
+```{r, message=FALSE}
+#message=FALSE will suppress this warning message
+library(dplyr)
+```
+
+###Managing Data Frames
+Let's work with the `surf` dataset and see how these functions work
+```{r}
+surf <- read.csv("surf2025.csv")
+head(surf)
+```
+## Copying and Renaming Columns
+Copying a data frame in base R
+
+```{r}
+surf.copy <- surf
+```
+
+Copying a data frame in dplyr
+```{r}
+surf.copy <- rename(surf)
+```
+but with the ability to rename columns as we go
+```{r}
+surf.copy <- rename(surf, Sex=gender, Highest_Qualification=education)
+```
+
+## Selecting Specific Columns
+```{r}
+ageinc <- surf[,c("age", "weekly_income")]
+ageinc[1:3,]
+```
+The select() function in dpylr allows us to do the same thing
+```{r}
+ageinc <- select(surf, age, weekly_income)
+ageinc[1:3,]
+```
+We can also omit columns, using the negative sign before the name
+(basically NOT select the columns)
+```{r}
+noageinc <-select(surf, -age, -weekly_income)
+noageinc[1:3,]
+```
+and just like in base R, we can select columns by specifying their numeric locations
+```{r}
+surf[1:3, c(1, 6, 7)]
+```
+Use select function
+```{r}
+select(surf, c(1, 6, 7))[1:3,]
+```
+To select specific rows of a data set by their row number, we can specify an index vector of row numbers
+```{r}
+surf[c(1, 5,33,2),]
+```
+We can put a filter to use an expression to see person id that has over over $900 income
+```{r}
+filter(surf, gender=="Female" & weekly_income>900,)
+```
+
+The convenience here is that we only refer to the column name, without repeatedly using the data frame name. If we want to combine a set of conditions using logical AND & we can separate them using commas: ,
+```{r}
+surf[surf$gender="Female" & surf$weekly_income>900]
+#is the same as this
+surf[surf$Gender=="Female", surf$Income>900,]
+```
+Note that in Base R other methods of selecting rows use functions like which() or grep() to identify row numbers e.g,
+```{r}
+which(surf$gender=="Female" & surf$weekly_income>900)
+```
+so that we can use this to get the same subset:
+```{r}
+surf[which(surf$gender=="Female" & surf$weekly_income>900),]
+```
+
+and recall that grep() gives the row numbers where a string is matched
+```{r}
+grep("Sky", starwars$name)
+```
+
+finds the row number of Star Wars characters (in the `starwars`data set provided by `dplyr`) with the string `Sky` somewhere in their names.
+```{r}
+filter(starwars, near(height, 170))
+```
+The default distance for `near()` is the built in value Machine$double.eps^0.5, which is 1.4901161^{-8} on the machine where I’m writing these notes.
+```{r}
+filter(starwars, near(height, 170))
+```
+
+The default distance for `near()`
+```{r}
+filter(starwars, near(height, 170, tol=5))
+```
+
+
+Another way to get the same answer here would be to use between() (Note that the limits are always inclusive: a<=x<=b, Not exlucsive: a<x<b)
+
+```{r}
+filter(starwars, between(height, 165, 175))
+```
+## Reordering a dataframe
+We may want to reorder the rows of a data set by one more variables in base R the `order()` command allows us t do this.
+Here are the male high earners:
+```{r}
+mhe <- filter(surf, weekly_income>1200, gender=="Male")
+mhe
+```
+
+These are output in the order they came in the original file. Lets say we want to output them in increasing order of age. `Sort()` gives us the ages sorted into order.
+```{r}
+sort(mhe$age)
+```
+but this is not what we want. We want the data set sorted using `Age` as the sorting variable. `Order()` tells us the order the rows need to come in if they are to be sorted into increasing order.
+```{r}
+order(mhe$age)
+```
+
+```{r}
+mhe[order(mhe$age),]
+```
+
+in dplyr we can use the arrange() function:
+```{r}
+arrange(mhe, age)
+```
+Using 2 or more variables at once:
+```{r}
+mhe[order(mhe$education, mhe$age),]
+```
+this sorts by education first, and then age
+Using arrange():
+```{r}
+arrange(mhe, education, age)
+```
+These sorts take place by default in increasing order to each variable. To reverse the sor on any particular variable wrap desc() around its name:
+```{r}
+arrange(mhe, education, desc(age))
+```
+
+
+In base R we can create new columns by simply referring to a name that does not yet exist
+```{r}
+mhe$agesquared <-mhe$age^2
+```
+In `dplyr` we use the `mutate()` function and we can create multiple new columns in one step.
+```{r}
+mhe <-mutate(mhe, N=nrow(mhe), agesquared=age^2, agecubed=age^3)
+mhe
+```
+Note that mutate() creates a new dataframe which we have to overwrite on top of the older version of mhe here. 
+## The pipe operator %>%
+
+Often we want to carry out a sequence of operations on a dataset, with a set of functions like filter() and mutate() being applied one at a time to a data frame, and the output of one function being immediately handed on to the next function in the sequence.
+The pipe operator allows us to do this in compact code
+
+Consider the operations
+- Remove the x variable in the surf data set
+- Rename the gender variable to sex
+- filter to people only with degrees or educations
+- compute a new column that is the square of age
+- save the resulting data frame as subsurf.
+
+We could carry out the sequence
+```{r}
+subsurf <- select(surf, -X)
+subsurf <- rename(subsurf, sex=gender)
+subsurf <- filter(subsurf, education%in%c("vocational", "degreee"))
+subsurf <- mutate(subsurf, agesquared=age^2)
+```
+This involves multiple command, multiple references to the object subsurf, and the need to save the intermediate results.
+Consider the first 2 steps -> We could do this one statement
+```{r}
+subsurf <- rename(select(surf, -X), sex=gender)
+```
+
+Replacing subsurf in the rename() call with the result of the select() statement. We could go on with the idea and achieve the whole sequence in one statement.
+
+```{r}
+subsurf <- mutate(filter(rename(select(surf, 
+                                       -X), 
+                                sex=gender), 
+                         education%in%c("vocational","degree")), 
+                  agesquared=age^2)
+```
+
+The pipe operator allows us to carry out a chain of operations like this, but writing much simpler code.
+```{r}
+subsurf <- surf %>%
+             select(-X) %>%
+             rename(sex=gender) %>%
+             filter(education%in%c("vocational","degre")) %>%
+             mutate(agesquared=age^2)
+```
+
+In this chain of piped substatements, the pipe sends the output of each substatement to be the first argument of the function in the following substatement. We only specify the second and subsequent arguments. 
+
+The advantages are obvious. The code is short, readable, we don't needlessly save intermediate results, nor do we have to type and retype the name of the data frame.
+
+Here's another example
+```{r}
+starwars %>%
+  filter(grepl("Sky",name) | species=="Hutt") %>%
+  mutate(bmi=mass/(height/100)^2) %>%
+  select(name, height, homeworld, bmi)
+```
+Which gets the names, heights, homes, and BMI values of the skywalker family, as well as any members of the Hutt species.
+It's handy to use pipes with the `knitr` and `kableExtra` packages when formatting data in tables.
+```{r}
+library(kableExtra)
+skyhutt <- starwars %>%
+  filter(grepl("Sky",name) | species=="Hutt") %>%
+  mutate(bmi=mass/(height/100)^2) %>%
+  select(name, height, homeworld, bmi) 
+skyhutt %>%
+  mutate(bmi=sprintf("%.1f",bmi)) %>%
+  kbl(col.names=c("Name","Height (cm)","Home World","BMI")) %>%
+  kable_styling() %>%
+  add_header_above(c(" "= 1,"Characteristics"=3))
+```

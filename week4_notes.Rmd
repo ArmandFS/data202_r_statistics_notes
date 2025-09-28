@@ -1,0 +1,303 @@
+---
+title: "week4_notes"
+author: "Armand Surbakti"
+date: "2025-09-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 4 Notes
+
+#### Strings!
+
+searching for strings in datasets
+```{r}
+airlines <- read.csv("airlines.csv", encoding="latin1")
+airlines[1:3,]
+```
+Note the use of encoding argument here, it allows for special characters, such as occur in:
+if there's no special characters, then no need to put encoding in it
+```{r}
+airlines[95,]
+```
+
+## Exact matching
+Let’s say we wanted to find all the airlines that were registered in New Zealand - we could match the Country variable exactly:
+```{r}
+nz.airlines <- airlines[airlines$Country=="New Zealand",]
+nz.airlines
+```
+
+## Fixed Substrings
+we can search for parts of a string using the substring() function
+substring(x, first, last) is the subpart of the string x starting at position first and finishing at last (or just the remainder of the string if we don’t specify last).
+```{r}
+substring("New Zealand", 1, 1)
+substring("New Zealand", 1, 3)
+substring("New Zealand", 5, 11)
+substring("New Zealand", 5)
+```
+note the handy functions toupper() and tolower() which convert to upper and lower case
+```{r}
+toupper("New Zealand")
+tolower("New Zealand")
+```
+
+These are useful when you’re not sure if the data have been carefully entered. For example:
+```{r}
+nrow(airlines[airlines$Country=="Thailand",])
+```
+
+let’s search for all airlines with names that begin with the word “Royal”:
+
+```{r}
+royal.airlines <- airlines[substring(tolower(airlines$Airline),1,5)=="royal",]
+nrow(royal.airlines)
+```
+
+## Searching for Substrings
+
+What about finding all the airlines in the world with “Royal” anywhere in their names? We need to be able to search inside strings for patterns: the grep() function allows us to to this. grep() provides the handy ignore.case=TRUE so that we find “royal” and “ROYAL” as well without having to use tolower or toupper
+
+```{r}
+idx.royal <- grep("Royal", airlines$Airline, ignore.case=TRUE, fixed=FALSE)
+royal.airlines <- airlines[idx.royal,]
+royal.airlines[1:5,]
+```
+
+## creating and printing strings
+
+The print() function does all kind of formatting: adding, for example, the [1] at the start of the printed line to show which element number we’re looking at. This is handy when we’re looking at vectors and arrays which wrap over several lines:
+
+```{r}
+#simple print function
+x <- 4
+print(x)
+
+```
+print() also has a default number of digits it displays, which we can change:
+```{r}
+print(pi)
+print(pi, digits=10)
+```
+
+But we can take a lot more control over output than print() allows.
+
+The best way to do this is to
+
+1. create the output string you want to display using the functions round(), paste(), paste0(), sprintf() etc.
+2. use the primitive function cat() to output that string
+
+
+Here’s an example: Say we have a variable with the radius of a circle, and we want to write a sentence stating the area of the circle to 1 decimal place.
+
+```{r}
+radius <- 4.4
+s <- paste0("The area of the circle is ",round(pi*radius^2,1),"cm.\n")
+cat(s)
+```
+
+- paste0() takes a set of strings and numerical variables, converts them all to characters, and puts them all together
+- The new line character \n is necessary, or the next thing R prints will still be on the same line.
+- paste0() is the same as the more general function paste(), except that paste() allows us to specify a separating character between the strings.
+
+example of how paste() works with vectors:
+```{r}
+
+hours <- c(2,4,12)
+mins <- c(22, 44, 23)
+secs <- c(32.346, 21.2, 4.3)
+paste(hours,mins,round(secs,1),sep=":")
+#pastes each column, and we have sep=":" to separate
+
+```
+
+When we want such precise formatting we use sprintf() - which creates more exactly formatted strings.
+
+sprintf() -> creates formatted strings, uses specifies such as `%s`, `%d`, `%f`, to control how values are inserted
+
+```{r}
+sprintf("%02d:%02d:%04.1f", hours, mins, secs)
+```
+This is what we want. sprintf() has an initial formatting instructions string, and then a set of vectors to print.
+
+
+cat() concatenantes and prints text/objects as plain text, no data struct formatting, and does not automatically add a newline (\n must be added manually)
+```{r}
+cat("Hello", "World\n")   # Hello World
+cat(1, 2, 3, "4\n")        # 1 2 3
+```
+
+%s is the way to output a string variable, and %%gives a % sign.
+```{r}
+testscores <- c(81,78,44,89)
+studentnames <- c("Oliver","Olivia","Jack","Hannah")
+cat(sprintf("%s scored %2d%% on the test.\n", 
+            studentnames, testscores))
+```
+
+## Splitting Strings apart
+
+R allows us to handle this using strsplit(), which will split a string into its separate pieces using a separating character - in this case 
+
+```{r}
+times <- c("01:22:23.4", "01:20:16.3", "00:58:22.1", "1:12:33.0")
+strsplit(times, split=":")
+```
+
+## Dates in R:
+
+A date often actually needs to be treated as a date-time: i.e. an instant of time on a particular day. To specify a date-time we need to state:
+
+- year
+- month
+- day of the month
+- hour
+- minute
+- seconds
+
+## useful date and time commands in R
+
+1. Sys.Date() - the current date
+
+2. Sys.time() - the current date-time
+
+3. as.Date() - convert character strings into dates
+
+4. format() - a generic function which can be used to convert dates into characters
+
+5. date() - the current date as a character string in a standard format.
+
+6. weekdays() - extract the day of the week
+
+7. months() - extract the month
+
+8. quarters() - extract the quarter (Q1-Q4)
+
+9. julian() - Number of days since 1 Jan 1970 (or any other specified origin)
+
+10. ISOdate() - Create a date-time object
+
+R assigns date as `class` of `date`. The `class` object tells R how it should treat that object when its doing various things
+
+example -> convert to dates
+```{r}
+birthdays <- c("25/12/1952","1/1/1970", "23/5/2001", "5/7/2019")
+bdates <- as.Date(birthdays, format="%d/%m/%Y")
+bdates
+```
+Here we are using the date format specifiers: %d means day, %m is numeric month, and %Y is four digit year.
+
+We can write these out in any format we like:
+
+```{r}
+format(bdates, "%d/%m/%Y")
+format(bdates, "%d/%m/%y")
+#abbreviated short day/month
+format(bdates, "%a, %d %b %y")
+#abbreviated full day/month 
+format(bdates, "%A, %d %B %y")
+```
+
+we can extract week day from dates and months using A% and B%:
+```{r}
+format(bdates, "%A")
+#or use this, same thing really
+weekdays(bdates)
+#same thing with months
+format(bdates, "%B")
+months(bdates)
+```
+A quick way to specify a date is to use the ISOdate function - specify the year, month, day as numeric vectors
+
+```{r}
+ISOdate(2000, 1, 1:10)
+```
+
+## Date Time Precision
+For a more precise specification of an instant of time, we need date-time objects
+We use the as.POSIXct function.
+
+as.POSIXct() -> Converts an object into a date-time object.
+
+class -> `POSIXct` represents seconds since 1970-01-01 00:00:00 UTC, stores both date and time. timezone can be controlled with tz argument
+
+
+```{r}
+s <- c("1 Jan 1970 00:00:00", "12 Jul 2000 12:10:30", "24 Mar 2010 13:45:01.34")
+st <- as.POSIXct(s, format="%d %B %Y %H:%M:%S", tz="UTC")
+st
+```
+Here %H, %M and %S are the format specifiers for hours, minutes and seconds respectively.
+UTC = Universal time/greenwich mean time
+
+```{r}
+t3 <- as.POSIXct("2025-09-01 14:30:00", tz="UTC")
+t3
+```
+
+## Reshaping Data from wide to long 
+
+Some datasets naturally include data that is replaced over time, but the data is stored in what is known as a wide format
+
+We can make plots of the growth of orange trees using by() function
+```{r}
+plot(Orange$age, Orange$circumference, 
+     xlab="Age (days)", ylab="Circumference (mm)",
+     main="Orange trees")
+```
+
+Narrow(long) -> each observation per measurement is its own row. ggplot2 prefers long format
+Wide format -> each subject is a single row, Different variables or repeated measures are spread across multiple columns.
+
+Let's convert orange from its narrow format to wide format and back again
+to go to wide format
+
+- idvar: the variables that identify each individual - in this case Tree
+- timevar: the variable that indexes the repeated times - age here
+- v.names: the variable that contains the actual measurements - circumference in this case
+- direction: wide if we’re going to wide format, long if we’re going to long/narrow format
+
+
+```{r}
+wideOrange <- reshape(Orange,
+                      idvar="Tree",
+                      timevar="age",
+                      v.names="circumference",
+                      direction="wide")
+wideOrange[1:3,]
+```
+
+
+To go back to long format we need to specify:
+
+- idvar: the variables that identify each individual - in this case Tree
+- varying: the variables that contain the repeated measurements - specify column that we want [2:8]
+- timevar: the name of the variable that will have the time values in the long format
+- direction: long (narrow)
+
+```{r}
+longOrange <- reshape(wideOrange, 
+                      idvar="Tree",
+                      varying=names(wideOrange)[2:8],
+                      timevar="age",
+                      direction="long")
+longOrange[1:3,]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,71 @@
+---
+title: "Week 6-Content"
+author: "Armand Surbakti"
+date: "2025-08-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## DATA202 - Week 6 Content
+### Data Visualization Using `ggplot`
+
+The `ggplot2` package provides alternate functionality for visualizing data. We will examine graphs that have previously been covered in this course but consider how to use functions in the `ggplot2` package to produce them.
+
+```{r}
+library(ggplot2)
+library(tibble)
+```
+
+### Example: 2015 Rugby World Cup Players
+
+To illustrate `ggplot2` functionality, we will use data on players from the 2015 rugby world cup. Let's start by reading and the dataset.
+```{r}
+rugby <- read.csv("rugby_world_cup_2015.csv")
+rugby <- as_tibble(rugby)
+names(rugby)
+```
+
+```{r}
+head(rugby)
+```
+The dataset contains a lot of information of the rugby metrics.
+
+the team that the player played for (team),
+the name of the player (name),
+the number of caps for the player (caps),
+the player’s position (position),
+the time in (fractional) years since the player’s debut (years_since_debut),
+the date on which the player debuted (debut),
+the age of the player in years (age),
+the approximate age of the player when they debuted (approx_age_debuted),
+the height of the player in centimeters (height_cm), and
+the weight of the player in kilograms (weight_kg).
+
+
+There are 3 players the name of the team of the team for which 
+```{r}
+rugby <- rugby %>%
+  filter(!(grepl("Utility", position)), team!= " ")
+```
+
+Most of the variables in the dataset are numeric, but a few are categorical and saved as character vectors (`team`, `name`, `position`) and team name (team), it makes sense to convert these to factors, as we have unique levels repeated a number of times for each variable. 
+
+When converting the `position` variable to a factor, we will want to specify the ordering of levels to ensure that `R` uses our specified ordering rather than simply ordering these alphanumerically.
+
+```{r}
+rugby$position <- factor(rugby$position,
+                         levels = c("Hooker", "Prop", "Lock", "Back Row", "Scrum Half", "Fly Half", "Centre", "Wing", "Full Back"))
+rugby$team <- factor(rugby$team)
+head(rugby)
+```
+### Visualising a single variable
+Before looking at specific graphical displays for numeric and categorical variables 
+
+
+
+
+
+

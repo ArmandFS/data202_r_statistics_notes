@@ -1,0 +1,592 @@
+---
+title: "Week 7"
+author: "Armand Surbakti"
+date: "2025-09-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Databases
+
+A database is a repository for data. When we have very large sets of data, which may be used and changed by many users simultaneously, then a set of excel files isn’t good enough.
+
+The data are stored in a central server. Multiple users connect to the database, and submit transaction requests (to add, delete or update data) and the server processes all these requests.
+
+There are a lot of relational database products available. There are commercial products such as Oracle, Sybase and Microsoft Access. There are free products such as SQLite and PostGres. These relational database products have a number of design properties in common, and they all implement SQL = “Structured Query Language”, which is a standard way of interacting with database objects.
+
+A relational database stores data in tables, and these tables will be somehow related, or linked, to each other. For example, a business might have a database to store information about their contracts. Each contract would have a client, and they would have contact details for each client, information about the start and end dates of the contract, the value of the contract, details of the contract work, etc. and the information would probably be stored as one row per contract.
+
+The information might be stored as a few large tables with lots of fields (i.e. columns), or as many tables with only a few fields each, and linked together by keys. For example, the business could store all their contract information in one big table and have columns for client contact information, then columns for the contract info, etc. Any client they have had multiple contracts with would have multiple rows in the table, for each of the separate contracts.
+
+
+or they could have one table of contracts with client IDs, and a separate table of contact details, linked by the same client IDs.
+
+There are advantages and disadvantages to different database structures, but one important detail to note is that if you split up the database into many separate tables, you need to have relational operations that let you pull out the linked information from multiple tables at once. 
+
+
+### Working with Databases in R
+
+We have to read any data we're interested into R before we can do anything and R stores a copy of everything in RAM. This makes R very memory hungry. 
+
+### SQLite
+
+
+SQLite is a simple database file structure - a SQLite database is just one big file which contains all of the data in the database. R can modify the data inside the file, but doesn’t need to load all of its contents to do so. Other programs can modify SQLite database files (e.g. SQLite4java), and multiple distinct users can modify the same file - though each one needs to lock the file while it’s working to stop any other user making changes during that time.
+
+
+### DBMS
+
+Database Management Server (DBMS) A DBMS server is a process that needs to be running all time. It accepts requests from users for data from the database, and accepts requests to modify data. DBMS servers often run across networks: the server runs on a particular high-specification machine, and users send requests across the network.
+
+### R and SQLite
+
+To use SQLite, install the packages RSQLite and DBI
+```{r}
+library(DBI)
+library(RSQLite)
+```
+
+Create a connection to a database called test_db. In SQLite this means creating or identifying a special file which contains all the information about the database. 
+```{r}
+test_conn <- dbConnect(RSQLite::SQLite(), "test_db.sqlite" )
+```
+
+If the file `test_db.sqlite` doesn't exist, then this command will create it in the current working directory.
+```{r}
+list.files()
+```
+```{r}
+file.info("test_db.sqlite")
+```
+
+The object test_conn is of a type we haven't seen before
+```{r}
+test_conn
+```
+
+### Basic Operations
+
+What is a database?
+```{r}
+dbListTables(test_conn)
+```
+Let's create a table in the database. First let's define a data frame inside R:
+```{r}
+schools <- data.frame(School=
+                        c("Mathematics and Statistics",
+                          "Geography, Environment and Earth Sciences",
+                          "Psychology",
+                          "Chemical and Physical Sciences",
+                          "Biological Sciences",
+                          "Engineering and Computer Science"), 
+                      Code=c("SMS","SGEES","PSYC","SCPS","SBS","ECS"),
+                      Faculty=c("FoSE","FoSE","FEHPS","FoSE",
+                                "FoSE","FoSE")
+                      )
+schools
+```
+Let's copy the data frame `schools` into a table called `vicschools` in our new database.
+```{r}
+dbWriteTable(test_conn, "vicschools", schools, overwrite=TRUE)
+dbListTables(test_conn)
+```
+
+If you look at the size of the database file, `test_db.sqlite`, you'll see it has increased now that we've created vicschools inside it.
+```{r}
+file.info("test_db.sqlite")
+```
+
+At the end of a database session, we need to disconnect from the database.
+```{r}
+dbDisconnect(test_conn)
+```
+
+
+## Some useful commands
+
+This are the main ones we'll need.
+
+#### Connections:
+- dbConnect()
+- dbDisconnect()
+- dbCanConnect()
+
+#### Finding out what is in the database
+- dbListTables()
+- dbExistsTable()
+- dbListFields()
+
+#### Fetchig data from and Writing data to the database
+- dbReadTable()
+- dbWriteTable() (note overwrite and append options)
+- dbRemoveTable()
+- dbGetQuery()
+
+#### Controlling queries and changes to the database
+- dbExecute()
+- dbBegin()
+- dbCommit()
+- dbRollback()
+- dbFetch()
+
+
+## Reading from a table
+```{r}
+test_conn <- dbConnect(RSQLite::SQLite(), "test_db.sqlite")
+```
+
+```{r}
+dbReadTable(test_conn, "vicschools")
+```
+
+If we want to store the output we write instead
+```{r}
+vv <- dbReadTable(test_conn, "vicschools")
+```
+
+Which store the table in the object
+```{r}
+vv
+```
+### Deleting a table
+
+Super easy. Barely an inconvenience. To delete the table `vicschools` we use `dbRemoveTable`
+
+```{r}
+dbListTables(test_conn)
+```
+```{r}
+dbRemoveTable(test_conn, "vicschools")
+dbListTables(test_conn)
+```
+
+### Transactions - Committing and Rolling Back
+
+In most databases any changes we make are temporary until they are committed.That means we can make a set of changes to tables, but then later decide that we want to undo all those changes. This may be because we realise that the changes are not longer wanted - such as when we get part way through complex booking of multiple flights, and then find that the last flight is not available.
+
+Important: By default, when SQLite starts it is in auto-commit mode, so that all changes that are requested are automatically made permanent 
+
+To make a set of tenative changes enter commit mode using the `dbBegin()` command:
+```{r}
+dbBegin(test_conn)
+```
+Then make a series of changes to database. If you want to keep changes go:
+```{r}
+dbCommit(test_conn)
+```
+Or if you want to abandon the changes go:
+```{r}
+dbRollback(test_conn)
+```
+
+This abandons all changes made after the dbBegin() statement.
+After either of these two calls (`dbCommit` or `dbRollback`) the database is back in auto-commit mode.
+
+An example:
+Let's create a table
+```{r}
+data(trees)
+dbWriteTable(test_conn, "treetable", trees, overwrite=TRUE)
+dbExistsTable(test_conn, "treetable")
+```
+Enter commit mode and delete the table - check that it is gone
+```{r}
+dbBegin(test_conn)
+dbRemoveTable(test_conn, "treetable")
+dbExistsTable(test_conn, "treetable")
+```
+Recover the table by doing a rollback
+```{r}
+dbRollback(test_conn)
+dbExistsTable(test_conn, "treetable")
+```
+After the rollback the database is in the same state as it was when we executed - and the deleted table has reappeared.
+But let's delete it again - and commit that change:
+```{r}
+dbBegin(test_conn)
+dbRemoveTable(test_conn, "treetable")
+dbCommit(test_conn)
+dbExistsTable(test_conn, "treetable")
+```
+
+Now the table has been permanently removed, and we can't get it back without loading it back into the database from outside.
+```{r}
+dbDisconnect(test_conn)
+```
+
+
+### R and SQL
+
+SQL or Structured Query language is a standard language for accessing and manipulating data in a database. Most database products implement stndard SQL, and many provide non-standard extensions to it.
+
+##### SQL Commands
+- SELECT - for accessing data
+- INSERT - for adding data to a table
+- UPDATE - for modifying entries in a table
+- DELETE - for removing rows from a table
+- CREATE TABLE - for defining a table
+- DROP TABLE - for deleting a table completely
+- CREATE INDEX - set up an index on a large table for faster access
+- DROP INDEX - remove an index
+
+##### SELECT and FROM clauses
+
+We'll set up a database to work with for these examples:
+```{r}
+test_conn <- dbConnect(RSQLite::SQLite(), "test_db.sqlite")
+surf <- read.csv("surf2025.csv")
+dbWriteTable(test_conn, "surfshort", surf[1:10,1:8], overwrite=TRUE)
+```
+
+The simplest use of SQL is to request all of the data from a table. To do this, we use the `SELECT` statement with a `FROM` clause. This example is asking for everything (indicated by *) from a specified table `surfshort`
+
+Method 1: Specify a query string in `dbgetQuery`
+```{r}
+dbGetQuery(test_conn, "SELECT * FROM surfshort")
+```
+```{r}
+#save the output to a dataframe
+ss <- dbGetQuery(test_conn, "SELECT * FROM surfshort")
+```
+
+
+Method 2: Use RMarkdown Functionality to write SQL connection
+```{sql connection=test_conn}
+SELECT * FROM surfshort
+```
+
+To capture the output of a chunk written this way, add `output.var=` to the specification of the chunk, giving (in quotes) the name of the object (in this case ss) where you want to store the output.
+```{sql connection=test_conn, output.var="ss"}
+SELECT * FROM surfshort
+```
+but this is quietly creating the object `ss`
+
+```{r}
+ss
+```
+Note that in an {sql} code block, R Markdown recognises and renders SQL key words in the SELECT command in bold and colours them red - and that I’ve written them in upper case in anticipation of that. It’s good practice to do this, but the SQL is actually case insensitive, so this works too:
+
+
+```{sql connection=test_conn}
+select * from surfshort
+
+```
+We can also ask just for particular columns in a table too:
+```{sql connection=test_conn}
+SELECT ethnicity, education FROM surfshort
+```
+### WHERE Clause
+
+We can subset the data from a `SELECT` query by specifying conditions the data must satisfy:
+```{sql connection=test_conn}
+SELECT * 
+FROM surfshort
+WHERE ethnicity="Māori"
+```
+
+```{sql connection=test_conn}
+SELECT *
+FROM surfshort
+WHERE ethnicity="European/Other"
+```
+
+Note here that (unlike R) we check for equality with a single = rather than a double ==. Not equal is different too: <>
+```{sql connection=test_conn}
+SELECT *
+FROM surfshort
+WHERE ethnicity <> "European/Other"
+```
+
+Also note here that the layout of the query (spacing, new lines) doesn’t matter, as long as we don’t have any blank lines. The reason for switching to multiple separate lines is that the query is easier to read that way, especially if any of its clauses are long. Also note that case is important when specifying the values inside columns.
+
+```{sql connection=test_conn}
+SELECT * FROM    surfshort    WHERE ethnicity = "European/Other"
+
+```
+
+We can have multiple conditions
+```{sql connection=test_conn}
+SELECT age, ethnicity, education, ethnicity, ethnicity, education
+FROM   surfshort 
+WHERE  (ethnicity = "European/Other" AND education="Less than secondary school") OR ethnicity="Asian"
+```
+
+Here the people who are labour_force_status = Employed are only included if they have degree education. We can always rename any of the columns during the select statement using AS
+```{sql connection=test_conn}
+SELECT age, ethnicity, education, labour_force_status
+FROM surfshort
+WHERE (labour_force_status = "Employed" AND education="Degree")
+```
+
+Common operators we want to use in `WHERE` clauses are:
+
+- AND
+
+- OR
+
+- NOT
+
+and then we make comparisons with:
+
+- =, <>
+
+- >, >=, <, <=
+
+- LIKE
+
+- IN
+
+- IS NULL, IS NOT NULL
+
+#### Here are some more examples
+
+Select people with a range of ages
+
+
+```{sql connection=test_conn}
+
+SELECT ethnicity, age FROM surfshort WHERE age >= 18 AND age<60
+```
+
+and the people who are NOT in that range can be selected in either of two ways.
+```{sql connection=test_conn}
+SELECT ethnicity, age FROM surfshort WHERE NOT age >= 18 OR age<40
+```
+
+Here, the symbol is a wild card that can match any character. So in this query any qualification with the final letter l will match. Note also that we use LIKE when we are comparing to a string containing one (or more) wildcard(s).
+
+
+```{sql connection=test_conn}
+
+SELECT ethnicity, age, education FROM surfshort WHERE UPPER(education) LIKE '%E'
+```
+Using `IN`, we can select a particular set of values.
+
+```{sql connection=test_conn}
+SELECT ethnicity, age, education FROM surfshort WHERE age IN (18, 27, 55, 27, 47)
+```
+
+
+### ORDER BY clause
+
+Using the `ORDER BY` clause, we can askf or the rows to come out in a particular sorted order if we choose:
+
+```{sql connection=test_conn}
+SELECT  age, ethnicity, education 
+FROM surfshort 
+WHERE age 
+IN (18, 27, 55, 27, 47)
+ORDER BY education, ethnicity, age
+```
+
+Each variable is sorted into ascending order, but we can put DESC after any variables we’d rather see in reverse order:
+
+```{sql connection=test_conn}
+SELECT  age, ethnicity, education 
+FROM surfshort 
+WHERE age 
+IN (18, 27, 55, 27, 47)
+ORDER BY age DESC, education
+```
+
+Let's push a dataset with some null values into a database. Here we are writing dummy data.
+```{r}
+dd <- data.frame(x=1:5, y=c(NA,2,3,4,NA), z=c('a','Hello','data',NA,NA))
+```
+
+Here we create anew table for the dumbdata
+```{r}
+dbWriteTable(test_conn, "dumbdata", dd, overwrite=TRUE)
+```
+
+```{sql connection=test_conn}
+SELECT * FROM dumbdata
+```
+
+Now we can filter out the rows with or without missing data:
+```{sql connection=test_conn}
+SELECT * FROM dumbdata WHERE y IS NULL
+```
+
+And then we can test for not equal to `NULL` using `IS NOT NULL`:
+```{sql connection=test_conn}
+SELECT * FROM dumbdata WHERE y IS NOT NULL
+```
+
+### Creating Tables
+We have seen how to create a table in the database by pushing an R data frame into the database using `dbWriteTable()`. We can also create a table using SQL. The first step is to define the table properties -> we create an empty table, listing each column and its type. The types we have available to use  in SQLite are `character`, `integer`, and `double`
+
+Create a new table with the CREATE TABLE command, giving the table name, and then a list of the columns with their types:
+```{sql connection=test_conn}
+
+CREATE TABLE lecturers (
+  first_name   TEXT,
+  last_name    TEXT,
+  start_week   INTEGER,
+  end_week     INTEGER,
+  school       TEXT
+)
+
+
+```
+There's nothing in the table yet:
+```{sql connection=test_conn}
+SELECT * FROM lecturers
+```
+
+
+We can use the `INSERT` statement into the table using SQL
+```{sql connection=test_conn}
+INSERT INTO lecturers (first_name, last_name, school)
+VALUES
+("Richard","Arnold","SMS"),
+("Louise","McMillan","SMS"),
+("Ryan","Admiraal","SMS"),
+("John","Haywood","SMS")
+```
+
+And then we can just check our table. Note that we didn't specify start_week or end_week
+```{sql connection=test_conn}
+SELECT * FROM lecturers
+```
+
+### Changing Data in a table
+We can modify or put data into specific cells (replacing whatever is there already) using the UPDATE statement, with a WHERE clause to pick out the rows we want.
+For example, we can fill in the week numbers of the first and last weeks of teching for Richard.
+
+```{sql connection=test_conn}
+UPDATE lecturers
+SET start_week=1, end_week=6
+WHERE first_name = "Richard"
+```
+Let's check the table again
+```{sql connection=test_conn}
+SELECT * FROM lecturers
+```
+
+Let's add more updates to the table:
+```{sql connection=test_conn}
+UPDATE lecturers
+SET start_week=7, end_week=8
+WHERE first_name = "Louise"
+```
+
+```{sql connection=test_conn}
+UPDATE lecturers
+SET start_week=9, end_week=12
+WHERE LOWER(first_name) = "ryan"
+```
+
+```{sql connection=test_conn}
+
+SELECT * FROM lecturers
+
+```
+
+Here's some `UPDATE` commands to update multiple rows at once:
+```{sql connection=test_conn}
+UPDATE lecturers SET school="Mathematics and Statistics"
+```
+
+```{sql connection=test_conn}
+SELECT * FROM lecturers
+```
+
+
+### Deleting Rows from a Table
+
+We can delete specific rows from a table using the DELETE statement, with a WHERE clause specifying which ones we want to remove:
+For example, we can delete any lecturers without a start_week:
+an alternative to this would have been to notice that John isn’t lecturing and instead run
+
+```{sql connection=test_conn}
+DELETE FROM lecturers WHERE start_week IS NULL
+```
+
+
+```{sql connection=test_conn}
+SELECT * from lecturers
+```
+We can delete all the rows in a table at once, leaving the table existing but empty, using a DELETE statement without a WHERE clause:
+
+```{sql connection=test_conn}
+DELETE FROM lecturers
+```
+
+```{sql connection=test_conn}
+SELECT * FROM lecturers
+```
+
+### Deleting a table
+
+To fully delete a table in SQL (all its data and the table definition), use the `DROP TABLE` command.
+This removes the table - all rows and the table definition are deleted.
+```{sql connection=test_conn}
+DROP TABLE lecturers
+```
+
+### Applying Functions in a SELECT statement
+
+We can do more than simply extract the data in a table: we can transform it or perform calculations on it as it is extracted.
+
+Lets look at the surf data again: push it into the database (overwriting it if it’s already there):
+
+
+```{r}
+test_conn <- dbConnect(RSQLite::SQLite(), "test_db.sqlite")
+surf <- read.csv("surf2025.csv")
+```
+
+```{r}
+dbWriteTable(test_conn, "surf", surf, overwrite=TRUE)
+```
+
+```{sql connection=test_conn}
+SELECT COUNT(*) FROM surf
+```
+
+
+Now let’s count how rows within each category of ethnicity  status by adding a GROUP BY clause:
+```{sql connection=test_conn}
+SELECT ethnicity, COUNT(*)
+FROM SURF
+GROUP BY ethnicity
+```
+
+The GROUP BY clause separates the data set into chunks before any work is done. It works similarly to the group_by() function from the dplyr package: that’s because the dplyr function was named after the SQL keyword.
+
+Add the minimum and maximum ages in each group, and rename the output columns too:
+```{sql connection=test_conn}
+SELECT ethnicity, COUNT(*) AS Number, MIN(age) as AgeMin, MAX(age) as AgeMax
+FROM   SURF
+GROUP BY ethnicity
+```
+
+
+We can combine this with a WHERE clause to restrict our attention to a subset of people: say those who are Asian:
+```{sql connection=test_conn}
+SELECT ethnicity, COUNT(*) AS Number, MIN(age) as AgeMin, MAX(age) as AgeMax
+FROM   SURF
+WHERE  ethnicity = "Asian"
+GROUP BY ethnicity
+```
+
+
+We can also use a HAVING clause, which works just like a WHERE clause, except that it selects on group properties, not individual row properties:
+```{sql connection=test_conn}
+SELECT ethnicity, COUNT(*) AS Number, MIN(age) as AgeMin, MAX(age) as AgeMax
+FROM   SURF
+WHERE  ethnicity = "Asian"
+GROUP BY ethnicity
+HAVING COUNT(*) > 15
+```
+The count function can be used just to count rows, as we have been doing, but we can also count how many different or DISTINCT values occur in a particular column:
+```{sql connection=test_conn}
+SELECT COUNT(*), COUNT(DISTINCT ethnicity), COUNT(DISTINCT age) FROM surf
+```
+
+
+

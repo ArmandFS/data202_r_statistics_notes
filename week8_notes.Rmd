@@ -1,0 +1,287 @@
+---
+title: "Week 8 notes"
+author: "Armand Surbakti"
+date: "2025-09-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Joining in SQL
+
+Here is a list of courses that can be taken in COMP, DATA, MATH and STAT at first year:
+
+
+```{r}
+courses <- data.frame(course.code=c("COMP102","COMP103","COMP112","COMP132",
+                                    "DATA101",
+                                    "MATH132","MATH141","MATH142",
+                                    "MATH151","MATH177",
+                                    "STAT193"),
+                      course.title=c(
+                        "Introduction to Computer Program Design",
+                        "Introduction to Data Structures and Algorithms",
+                        "Introduction to Computer Science",
+                        "Programming for the Natural and Social Sciences",
+                        "Introduction to Data Science",
+                        "Introduction to Mathematical Thinking",
+                        "Calculus 1A",
+                        "Calculus 1B",
+                        "Algebra",
+                        "Probability and Decision Modelling",
+                        "Statistics in Practice"),
+                      school=rep(c("ECS","SMS"),c(4,7))
+                      )
+courses
+```
+
+Here is a (fictitious) list of 10 student names (generated using the most common first and last names in New Zealand in 2016), each assigned a student ID number. Let’s imagine that these students are all enrolled in a new second year course about programming in R, and the course coordinator wants a bit more information about the courses they’ve taken in their first year.
+
+
+```{r}
+students <- data.frame(
+              idno=20001:20010,
+              first.name=c("Oliver","Jack","William","Mason","James",
+                           "Olivia","Charlotte","Isla","Harper","Ella"),
+              last.name=c("Smith","Wilson","Williams","Brown","Taylor",
+                          "Jones","Singh","Wang","Anderson","Li"),
+              sex=rep(c("M","F"),c(5,5)),
+              dob=c("12/3/1999","4/2/2001","6/12/2002","23/5/2001","14/7/2002",
+                    "17/7/2002","31/1/2002","8/9/2000","15/5/1997","12/11/1982")
+              )
+students
+```
+
+Here is an equally fictitious set of enrolments in COMP, DATA, MATH and STAT courses.
+
+```{r}
+enrolments <- data.frame(
+  idno=c(20001,20001,20001,20001,
+         20002,20002,20002,
+         20003,20003,
+         20004,
+         20006,
+         20007,20007,20007,20007,20007,
+         20008,20008,20008,
+         20009,20009,
+         20011,20011),
+  course=c("STAT193","MATH132","DATA101","COMP132",
+           "MATH141","MATH142","MATH151",
+           "MATH142","COMP102",
+           "STAT193",
+           "MATH132",
+           "MATH141","MATH142","MATH151","MATH177","COMP102",
+           "COMP102","COMP103","MATH141",
+           "STAT193","DATA101",
+           "STAT193","DATA101"),
+  grade=c("A","A-","A","A+",
+          "B","A-","B",
+          "B+","B",
+          "C+",
+          "B-",
+          "A-","B+","A","A","B+",
+          "A","A-","B-",
+          "A","A-",
+          "B","B")
+)
+enrolments
+```
+```{r}
+write.table(students, file="students.csv", sep=",", 
+            row.names=FALSE, col.names=TRUE)
+write.table(enrolments, file="enrolments.csv", sep=",", 
+            row.names=FALSE, col.names=TRUE)
+write.table(courses, file="courses.csv", sep=",", 
+            row.names=FALSE, col.names=TRUE)
+```
+
+
+Let's load these 3 tables into our database
+```{r}
+#call the libraries
+library(DBI)
+library(RSQLite)
+test_conn <- dbConnect(SQLite(), "new_db.sqlite")
+```
+
+
+```{r}
+dbWriteTable(test_conn, "courses", courses, overwrite=TRUE)
+dbWriteTable(test_conn, "students", students, overwrite=TRUE)
+dbWriteTable(test_conn, "enrolments", enrolments, overwrite=TRUE)
+dbListTables(test_conn)
+
+```
+
+Let's ask for the complete data of students:
+```{sql connection=test_conn}
+SELECT * FROM students
+```
+
+
+info on all course enrollments:
+```{sql connection=test_conn}
+SELECT * FROM enrolments
+```
+Question:
+Which students are taking which course?
+
+For this we need to join the students and enrolments tables together - so we need to call data from both sources. To do this we connect the tables using a key: this is the student ID number idno. Each student is uniquely associated with a student ID, which we can see in the students table. In the enrolments this key appears multiple times: once for each course the student is taking.
+
+To accomplish the join we need to select data from both tables:
+```{sql connection=test_conn}
+SELECT * 
+FROM students LEFT JOIN enrolments
+ON students.idno=enrolments.idno
+ORDER BY idno
+```
+
+This is a list of all of the students and the courses they are enrolled in. Note that James Taylor (Student ID 20005) and Ella Li (Student ID 20010) each have a single row, but since didn’t take any 100 level courses last year, they have NA values for course. In this query we need to distinguish the columns that come from the different tables: we do this by referring to a column by a combination of the table name it comes from together with its column name: so students.idno is the copy of idno that is in the students table, and enrolments.idno is the copy in the enrolments table. This also conveniently allows us to cope with the situation where the student ID number has a different column name in the tables being joined. e.g. it could be called idno in one table and studentID in another, and we’d still be able to join the tables together.
+
+In this LEFT JOIN we take all rows in the FROM table (i.e. the ‘left’ table), and attempt to match them to the LEFT JOIN table (i.e. the ‘right’ table). If we succeed we give all the matching rows, and if we don’t we just give a single row with the data from the left table, but nothing from the right table.
+
+If we just want to see all of the enrolments, and only the students who match to those courses, then we can do a RIGHT JOIN of students with enrolments. To achieve this (since SQLite doesn’t implement RIGHT JOIN) we just do a LEFT JOIN of enrolments with students: i.e. we make enrolments the left table and students the right table.
+
+
+```{sql connection=test_conn}
+SELECT * 
+FROM enrolments LEFT JOIN students
+ON students.idno=enrolments.idno
+ORDER BY idno
+```
+
+If we don’t want to do a right or left join we can do an INNER JOIN between these two tables, and request only those students in the class who have enrolments, and only those enrolments corresponding to students in the class.
+
+```{sql connection=test_conn}
+SELECT * 
+FROM enrolments INNER JOIN students
+ON students.idno=enrolments.idno
+ORDER BY idno
+```
+Note that for an INNER JOIN, it doesn’t matter which order we specify the tables:
+
+```{sql connection=test_conn}
+SELECT * 
+FROM students INNER JOIN enrolments
+ON students.idno=enrolments.idno
+ORDER BY idno
+```
+and in fact we can accomplish the inner join in a third way:
+```{sql connection=test_conn}
+SELECT * 
+FROM   enrolments, students
+WHERE  students.idno=enrolments.idno
+ORDER BY idno
+```
+
+A FULL OUTER join will give us the missing data on both sides, but that's one of the things that SQLite doesn't implement. FIrst, check the names of the fields in the tables:
+
+
+```{r}
+dbListFields(test_conn, "students")
+```
+
+```{r}
+dbListFields(test_conn, "enrolments")
+```
+
+We can achieve a full outer join by combining the output of two left joins using the UNION statement to bring the output of two SELECT statements together.
+
+```{sql connection=test_conn}
+SELECT students.idno, enrolments.idno, "first.name", "last.name", course, grade
+FROM students LEFT JOIN enrolments
+ON students.idno=enrolments.idno
+UNION
+SELECT students.idno, enrolments.idno, "first.name", "last.name", course, grade
+FROM enrolments LEFT JOIN students
+ON students.idno=enrolments.idno
+ORDER BY students.idno
+```
+
+Note! We have had to put the column names first.name and last.name in quotes in this query, because otherwise first.name looks like it is referring to the column name in the table called first.
+
+Also note that in order to use UNION, the column names listed in the two select queries have to be exactly the same.
+
+
+### CROSS join example.
+
+This is a rare type of join, for data which don't share a common key. It's called a CROSS JOIN which simply matches every row in one table with every row in the other
+```{r}
+xx <- data.frame(colour=c("Red","Green","Blue"),    
+                 height=c("Tall","Tall","Short"))
+yy <- data.frame(width=c("wide","narrow"))
+dbWriteTable(test_conn, "xx", xx, overwrite=TRUE)
+dbWriteTable(test_conn, "yy", yy, overwrite=TRUE)
+```
+
+```{sql connection=test_conn}
+SELECT * FROM xx
+```
+```{sql connection=test_conn}
+SELECT * FROM yy
+```
+
+Here we can perform the cross join:
+```{sql connection=test_conn}
+SELECT * 
+FROM xx CROSS JOIN yy
+```
+
+### Subqueries in JOINS
+
+Let's work out how many courses each student took: the `enrolments` table tells us this:
+```{sql connection=test_conn}
+SELECT idno, COUNT(*) AS ncourses
+FROM   enrolments
+GROUP BY idno
+ORDER BY idno
+
+```
+
+This is OK, but it doesn't tell us who the students are, so we can join the output of this query to the `students` table
+```{sql connection=test_conn}
+SELECT * 
+FROM students,
+(SELECT idno, COUNT(*) AS ncourses
+ FROM   enrolments
+ GROUP BY idno
+ ORDER BY idno) summary
+WHERE students.idno = summary.idno
+```
+
+Here a subquery - a SELECT query embedden inside the main query - generates a temporary table, which we’ve chosen to call summary, and we join students to that table.
+
+Let’s take a look at just one student - ID number 20001
+
+```{sql connection=test_conn}
+SELECT *
+FROM students
+WHERE students.idno=20001 
+```
+
+We can find out about his enrolments:
+```{sql connection=test_conn}
+SELECT *
+FROM students, enrolments
+WHERE students.idno=20001 
+      AND students.idno=enrolments.idno
+```
+
+and we can also find out more about what these courses actually are by joining three tables at once:
+
+```{sql connection=test_conn}
+SELECT students.idno, "first.name", "last.name", course, grade, "course.title"
+FROM students, enrolments, courses
+WHERE students.idno=20001 
+      AND students.idno=enrolments.idno
+      AND enrolments.course=courses."course.code"
+```
+
+
+## continue later with 8.2 and 8.3 for studying for the test later
+
+
+
+

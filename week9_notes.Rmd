@@ -1,0 +1,935 @@
+---
+title: "week9 notes"
+author: "Armand Surbakti"
+date: "2025-09-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+### Probability in Simulation
+
+R is intended as a programming language for probability and statistics. Probability distributions can be separated into:
+
+- Discrete distributions: probability distributions applicable to data which can be represented as discrete outcomes. In other words, there are finitely or countably infinite (i.e., outcomes can be mapped to counting numbers) possible outcomes.
+
+- Continuous distributions: probability distributions applicable to data which can take on uncountably many possible outcomes.
+
+### Discrete Distributions
+
+For simulating discrete outcomes, we’re going to use one function in particular: sample(). This function selects randomly from a set of discrete values. The function’s usage definition is as follows:
+
+```{r}
+#sample(x, size, replace = FALSE, prob = NULL)
+```
+As its name suggests, one of the function’s uses is to select a random subset of values from a vector, i.e. sample from the vector. x is the vector to sample from. size is the length of the subset. replace indicates whether an element of the vector can be selected more than once, and for this use case we’d stick with the default setting of replace = FALSE, because we don’t want to duplicate any values in the sample. prob is the probabilities of selecting different elements of the original vector, and by default this will be equal probabilities for all elements.
+
+The second use is to permute a vector into a random order: if you select a random subset that’s the same length as the original vector, i.e. size = length(x), then the output of sample() will be a randomly reordered version of the vector. For this, you still want replace = FALSE.
+
+The third use is to randomly select outcomes from a specified vector of outcomes, which is like simulating from a multinomial probability distribution. sample() lets you simulate multiple outcomes at once, but if you want all of these to be from the same distribution, you need to set replace = TRUE. That “resets” the function for each new outcome so that it’s drawing from the same vector of possible outcomes and their probabilities don’t change. By default, sample() will assign equal probabilities to all elements of the vector. We could specify varying probabilities for the different outcomes.
+
+The fourth use is for bootstrapping. This is a statistical method in which we can estimate the uncertainty in the results we get from a sample by resampling more samples from that original sample with replacement, i.e. with replace = TRUE and then repeating the statistical calculations we did on the original sample on all of the resamples.
+
+
+We are mostly going to focus on the use of `sample()` for the third use, which is to randomly select outcomes from a specified vector of outcomes. 
+
+### Case 1: Two equally likely outcomes -> Analysis using relative frequencies
+
+Consider an experiment of flipping a fair coin and counting how many times we observe heads (H) and how many times we observe tails (T). We aim to observe the number of H and T counts (or actually, the relative frequency of these counts) in a sample size of N. Consider a small samples size(repetitions of the experiment, of say, N=10)
+
+```{r}
+
+#Specify the sample size.
+N <- 10
+
+#Set random number generator seed for replicability of results.
+set.seed(0)
+
+#Denote our outcomes by 'H' = 0 and 'T' = 1, and randomly sample 'N' outcomes where 'H' and 'T' each occur with probability 0.5.
+outcomes <- sample(c(0, 1), size = N, replace = TRUE, prob = c(0.5, 0.5))
+
+#Create a table of outcomes and store it in a data frame.
+sorting <- data.frame(table(outcomes))
+#Add a new variable to the data frame which stores the relative frequency of outcomes.
+sorting$rel.freq <- sorting$Freq / N
+
+#Produce a barplot of relative frequencies of heads and tails.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = c("Heads", "Tails"), xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Heads and Tails\nFrom 10 Flips of a Fair Coin", col = c(gray(0.75), 1))
+
+
+```
+The output shows that from our 10 trials, seven of them were H(proportion of 0.7 to percentage of 70%) and three were T (i.e, proportion of 0.3 or percentage 0f 30%). What will happen in terms of relative frequency if we increase the sample size? Next, observe the output if the number of trials is increased to 45. What would we expect to see?
+
+```{r}
+N <- 45 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(c(0, 1), size = N, replace = TRUE, prob = c(0.5, 0.5)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = c("Heads", "Tails"), xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Heads and Tails\nFrom 45 Flips of a Fair Coin", col = c(gray(0.75), 1)) # Create barplot
+```
+For N = 45, we still observe slightly more outcomes of H than T. Because we are flipping a fair coin, we would expect to have nearly the same number of observed H and T outcomes, and these outcomes should have equal relative frequencies of 0.5.
+
+Here's what happens if we increase the sample size to N=100. we would observe that the relative frequencies would get even closer 0.5, although they are still slightly different.  In general, as the sample size N becomes increasingly large, the two relative frequencies will become approximately equal to each other with a value of 0.5. For example, for N = 1,000,000, we get the following result:
+
+```{r}
+
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(c(0, 1), size = N, replace = TRUE, prob = c(0.5, 0.5)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = c("Heads", "Tails"), xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Heads and Tails\nFrom 1,000,000 Flips of a Fair Coin", col = c(gray(0.75), 1)) # Create barplot
+
+
+```
+### Summary of our findings
+
+- For an experiment with two equally likely outcomes (say, heads and tails), after many trials we should see approximately equal numbers of occurrences (as well as relative frequencies) for the two outcomes, and the relative frequencies of the outcomes should be approximately the same and equal to 0.5.
+
+- We note that the sum of the two relative frequencies is 0.5 + 0.5 = 1.
+
+
+### Relative frequencies and probability
+
+The limiting relative frequency of the outcomes (i.e., the values that the relative frequencies tend toward as the number of trials becomes increasingly large) can be represented as a statistical probability of the outcomes. We denote these two probabilities with the notation
+
+- P(H)=0.5  and  P(T)=0.5,
+
+and these probabilities have the property:
+
+- P(H)+P(T)=1.
+
+Having in mind the results of this experiment, we introduce the idea of a discrete random variable (i.e., a variable used to represent random outcomes that are discrete) and a discrete probability distribution (i.e., the probabilities that correspond to the possible values of the discrete random variable). The probability mass function defines the discrete probability distribution and allocates probabilities to all possible values of the random variable.
+
+
+### Analysis using cumulative relative frequencies
+
+Consider the same experiment of flipping a fair coin and counting how many times we observe heads (H) and how many times we observe tails (T). We aim to observe the relative frequency of outcomes of H and T in a sample of size N. Now, though, we present outcomes in terms of cumulative relative frequencies (i.e., the relative frequencies of all outcomes less than or equal to a particular value). Because we already have an intuition on how the sample size affects the relative frequencies, we will immediately consider a large sample size scenario, say, N = 1,000,000.
+
+The R code that “performs” this experiment is given below
+
+```{r}
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <-sample(c(0, 1), size = N, replace = TRUE, prob = c(0.5, 0.5)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+
+# Construct a variable to reflect the number of unique values of the random variable (i.e., the  number of unique outcomes of the experiment).
+K <- nrow(sorting)
+# Initialise a matrix in which to store information related to cumulative relative frequencies.
+crf <- matrix(0, nrow = K, ncol = K)
+
+# Create a matrix where columns of the matrix give cumulative frequencies up to the ith outcome. In the ith column,  align the ith outcome with the last row of the matrix, and let the previous outcomes stack up above it.
+for(i in 1 : K)
+  crf[((K - i) + 1) : K, i] <- sorting$rel.freq[1 : i]
+
+barplot(crf, col = c(rep(gray(0.5), K - 1), 1), space = 0, names.arg = NULL, xlab = "", ylab = "Proportion", main = "Cumulative Relative Frequencies of Heads and Tails\nFrom 1,000,000 Flips of a Fair Coin")
+axis(side = 4, at = c(0.25, 0.75), labels = c("Heads", "Tails"), tick = FALSE, line = -1.5, las = 2)
+
+```
+
+What information does the previous graphic provide? We can think of the range of relative frequency values[0, 1] as being split into two non-overlapping subsets [0, 0.5] and (0.5, 1). The subset of [0, 0.5] is associated with the value of X
+ = 0 (i.e., the outcome of H), and the subset (0.5, 1] is associated with the value of X = 1 (i.e., the outcome of T). One consequence of this construction of the cumulative frequencies is that it gives us a way to simulate from this distribution. If we have a mechanism of randomly selecting a number r that is uniformly continuously distributed in the interval [0, 1], then the value of r is sufficient to identify the outcome of the experiment. In particular,
+ 
+If we generated a value of say, r= 0.866, then the simulated outcome of the experiments is X = 1 (i.e., the experiment outcome is tails). To do this in R, we can use the runif() function, which allows for random sampling from a uniform distribution:
+
+```{r}
+N <- 3 # Specify sample size.
+set.seed(1) # Set random number generator seed.
+runif(N) # Generate uniform random numbers from the interval [0, 1].
+```
+ 
+This gives us the outcomes H, H, T: the first two values are less than or equal to 0.5 and the third is larger than 0.5.
+
+Note that we did the simulation earlier using sample(), which essentially packages up all these steps in a pre-built function. But this illustrates what sample() is doing under the hood, and understanding this mechanism of simulation makes it feasible to construct more complicated simulations, as we’ll get to in later lectures.
+
+### Case 2: Two non-equally likely outcomes -> Analysis using relative frequencies
+
+```{r}
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <-sample(c(0, 1), size = N, replace = TRUE, prob = c(0.3, 0.7)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = c("Heads", "Tails"), xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Heads and Tails\nFrom 1,000,000 Flips of an Unfair Coin", col = c(gray(0.75), 1)) # Create barplot
+
+```
+As we saw with our experiment using a fair coin, for a large number of trials (say, 1,000,000), the relative frequencies of heads and tails are approximately that of the true probabilities of getting heads and tails, so the relative frequencies of heads and tails are very close to 0.3 and 0.7, respectively.
+
+### Analysis using cumulative relative frequencies
+
+As we saw before, we could just as well represent the results of these 1,000,000 trials in terms of cumulative relative frequencies. In this case, we can simulate an outcome for this experiment, by carrying out the following steps:
+
+In this case, we can simulate an outcome for this experiment, by carrying out the following steps:
+
+1. Generate a uniform random number in the interval [0, 1].
+
+2. Simulate the outcome of the experiment using the rule
+
+We can do the first step using runif(). If, for example, we wished to generate three uniform random number from the interval [0, 1], we could use the following code:
+
+```{r}
+N <- 3 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+runif(N) # Generate uniform random numbers from the interval [0, 1].
+```
+Exercises:
+ 
+1. If we’ve generated a vector of uniform random numbers and called it r, what code can we use to show the corresponding outcome for each value of r?
+ 
+answer:
+```{r}
+N <- 4
+set.seed(0)
+r <- runif(N)
+round(r, 2)
+```
+2. For r = (0.55, 0.29), what would the outcomes be?
+ 
+```{r}
+ifelse(r <= 0.3, "H","T")
+```
+
+### Case 3: More than two equally likely outcomes -> Analysis using relative frequencies
+
+Instead of flipping a fair coin, suppose we rolled a fair six-sided die. In this case, there are six possible outcomes (rolls of 1, 2, …, 6), each of which is equally likely. This produces the relative frequencies of outcomes 1, 2, …, 6 shown below. 
+
+```{r}
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(1 : 6, N, replace = TRUE, prob = rep(1 / 6, 6)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = 1 : 6, xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Outcomes\nFrom 1,000,000 Rolls of a Fair Six-Sided Die", col = rep(gray(0.75), 6)) # Create barplot
+
+```
+
+If we let the random variable X denote the outcome of a roll of the die, then X can potentially take on any of the values 1, 2, …, 6, each of which has a probability of 16
+of occurring. Then the probability mass function of X in this case is given by:
+
+X1 = 1/6, X2 = 1/6, X3=1/6, X4=1/6, X5=1/6, X6=1/6
+
+### Case 4: More than two non-equally likely outcomes -> Analysis using relative frequencies
+
+Finally, consider an experiment with multiple outcomes but with different probabilities of occurring. Suppose that a random variable X has four possible outcomes (X1, X2. X3, X4)
+and assume that their probabilities of occurrence are as shown in the following probability mass function. Note that all probabilities are positive and sum to 1
+
+```{r}
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(c("X_1", "X_2", "X_3", "X_4"), size = N, replace = TRUE, prob = c(0.2, 0.3, 0.1, 0.4)) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, ylim = c(0, 1), names.arg = c(expression(X[1]), expression(X[2]), expression(X[3]), expression(X[4])), xlab = "Outcome", ylab = "Proportion", main = "Relative Frequencies of Four Unequally Likely Outcomes\nFrom 1,000,000 Trials", col = rep(gray(0.75), 4)) # Create barplot
+```
+
+Representing the results of these 1,000,000 trials in terms of cumulative relative frequencies again provides a means of simulating outcomes from this experiment using uniform randomly generated numbers. In this case, we can simulate an outcome for this experiment, by carrying out the following steps:
+
+1. Generate a uniform random number in the interval [0, 1].
+2. Simulate the outcome of the experiment using the rule
+
+### Cumulative distribution function
+
+In addition to the probability mass function, a random variable X can be described by its cumulative distribution function. The cumulative distribution function is defined as
+
+- F(x)=P(X≤x),
+
+where X denotes the possible outcomes of the random variable X (which must be represented as numbers, even if the outcomes correspond to categories). It measures the probability that the value of the random variable is no larger than x. For the provided probability mass function, the cumulative distribution function is coded this way:
+
+```{r}
+x <- seq(-1, 5, by = 0.001)
+Fx <- ifelse(x < 1, 0, ifelse(x < 2, 2 / 10, ifelse(x < 3, 5 / 10, ifelse(x < 4, 6 / 10, 1))))
+plot(x, Fx, type = "l", lwd = 2, xlab = expression(x), ylab = expression(F(x)), main = "Cumulative Distribution Function")
+```
+
+Just as the probability mass function can be considered as the limiting relative frequencies of the outcomes of the discrete random variable X the cumulative distribution function can be considered as the limiting cumulative relative frequencies of the outcomes of the discrete random variable X. 
+
+**The difference between the PMF and CDF is that PMF gives the probability of a single outcome with the specified value, and the CDF gives the probability of getting outcomes less than or equal to the given value.**
+
+### Continuous Outcomes
+
+Now consider an experiment with infinitely many possible outcomes. The random variable associated with this type of experiment will have infinitely many possible values and is considered to be continuous. It is not possible to describe a continuous random variable using a probability mass function because probabilities corresponding to individual outcomes will all be 0. On the other hand the cumulative distribution function still exists, and can be used to generate/simulate values of a continuous random variable.
+
+Consider 1,000,000 simulations from an experiment with 100 possible outcomes, all of which are equally likely. This produces the cumulative relative frequencies shown below.
+```{r}
+N <- 1000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(1 : 100, size = N, replace = TRUE) # Simulate equally likely outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+
+# Construct a variable to reflect the number of unique values of the random variable (i.e., the  number of unique outcomes of the experiment).
+K <- nrow(sorting)
+# Initialise a matrix in which to store information related to cumulative relative frequencies.
+crf <- matrix(0, nrow = K, ncol = K)
+
+# Create a matrix where columns of the matrix give cumulative frequencies up to the ith outcome. In the ith column,  align the ith outcome with the last row of the matrix, and let the previous outcomes stack up above it.
+for(i in 1 : K)
+  crf[((K - i) + 1) : K, i] <- sorting$rel.freq[1 : i]
+
+barplot(crf, col = c(rep(0, K - 1), 4), space = 0, names.arg = NULL, xlab = expression(X), ylab = paste("Proportion",expression(F(x))))
+points(48.7, 0.487, col = 2, pch = 16, cex = 1.25) # Map a value on the cdf to a value for x
+abline(h = 0.487, col = 2, lwd = 1.5)
+abline(v = 48.7, col = 2, lwd = 1.5)
+text(46, 0.52, "48") 
+axis(side = 1, at = 48.7, labels = expression(x))
+axis(side = 2, at = 0.487)
+```
+If the number of outcomes of an experiment is very large, the top blue portion of the plot (which will reflect the cumulative relative frequency, which is approximately equal to the cumulative probability) will provide a close approximation for the cumulative distribution function F(x) of the random variable X related to this experiment. The cumulative distribution function F(x) of a continuous random variable is an increasing continuous function, approaching 1 for very large values of X and approaching 0 for very small values of X.
+
+How can this be used to simulate the value of a random variable X using cumulative relative frequencies or its equivalent for infinitely many outcomes. The cumulative distribution function? The algorithm is as follows:
+
+1. generate a uniform random number r in the interval [0, 1].
+2. find the value x∗ of the random variable X such that F(x∗)=r
+
+The geometric interpretation of the above algorithm is:
+
+1. Draw a horizontal line from the y-axis at r ,and find the point P(u, r) where it intersects the graph of F(x) (approximated by the top blue line).
+2. The value of x∗ is the value of X where a vertical line through point P(u, r) intersects the and the X-axis.
+
+For example, if the uniform random number that is generated is r = 0.487, then x∗ = 48.
+
+### Inverse Transformation Method
+
+This is the general inverse transform method for a continuous distribution, where:
+
+- r represents a proportion/probability/percent
+
+- x* is what is known as a quantile (or percentile), the x-value below which r of the outcomes lie
+
+## Simulation in R
+
+####Introduction to Simulation in R.
+
+Simulation is an important tool in understanding many probabilistic models and the outcomes that can be expected from them, and it is used in a variety of common statistical methods (e.g., bootstrapping, cross-validation, Markov chain Monte Carlo).
+
+
+### Seeds
+
+In reality, computers cannot generate numbers truly randomly. Rather, certain algorithms can be used to mimic random sampling by producings numbers that roughly approximate uniform random sampling. These algorithms are deterministic. That means that, if given a starting value, these algorithms will always produce the same subsequent sequence of numbers. The starting value for number generation is known as a seed. If the seed is not specified, most random number generator algorithms will use the time registered on the computer as the seed. When carrying out simulations, it is common to specify the seed. Why? If the seed is not specified, then the numbers that are produced by the random number generator algorithm may change if you re-run your code, as the algorithm will use the time to set the seed, and multiple runs of the same code at different times will mean that different seeds are used.
+
+
+### Simulating from Discrete Distributions:
+
+
+**Approach 1**
+
+First we consider simulating outcomes from a discrete distribution, similar to when we considered probability for discrete outcomes, we will begin by examining the case of two equally likely outcomes, such as when flipping a fair coin. Flipping a fair coin can be simulated by generating a 1-digit random number from 0 and 1 such that:
+
+- 0 ---> T
+- 1 ---> H
+
+
+We can use the following function
+
+```{r}
+one.flip.binary <- function(my.seed = 0)
+{
+  # Set the seed for generating a random number.
+  set.seed(my.seed)
+  # Sample a number from 0 and 1.
+  r <- sample(0 : 1, size = 1)
+  # View the value of the sampled number.
+  print(r)
+  # Based on the value of the sampled number, determine the outcome.
+  if(r == 0)
+    outcome <- "Tails"
+  else
+    outcome <- "Heads"
+  # Return the outcome
+  return(outcome)
+}
+
+# Simulate several coin flips using different seeds.
+one.flip.binary()
+
+```
+
+```{r}
+one.flip.binary(12)
+```
+```{r}
+one.flip.binary(6)
+```
+
+**Approach 2**
+
+Generate a random uniform number r on the interval [0, 1] such that:
+
+- r <= 1/2 -> T
+- r > 1/2 -> H
+
+Flipping a fair coin using random uniform numbers can be accomplished using the following function:
+
+```{r}
+one.flip.unif <- function(my.seed = 0)
+{
+  # Set the seed for generating a random number.
+  set.seed(my.seed)
+  # Sample a random uniform number in the interval [0, 1].
+  r <- runif(1)
+  # View the value of the sampled number.
+  print(r)
+  # Based on the value of the sampled number, determine the outcome.
+  if(r <= 0.5)
+    outcome <- "Tails"
+  else
+    outcome <- "Heads"
+  # Return the outcome
+  return(outcome)
+}
+
+# Simulate several coin flips using different seeds.
+one.flip.unif(2)
+
+```
+```{r}
+one.flip.unif(23)
+```
+
+```{r}
+one.flip.unif(0.7)
+```
+
+### Expectation and Variance of a Discrete Random Variable (Expected Value)
+
+The expected value (or mean) of a random variable X is a measure of “central tendency” and is usually denoted by E(X). For a discrete random variable X the expected value is a weighted average of all possible values of X (say, x1, x2, …, xn) with weights given by the corresponding probabilities (say, P(x1), P(x2), P(x1)).  In other words, each possible value the random variable can take is multiplied by its probability of occurring, and the resulting products are summed to produce the expected value. The expected value has a nice interpretation as the balance point of the distribution. It represents the center of mass of a system made of the collection of locations and weights/probabilities {xi,p(xi)}
+ for the random variable X
+. The expected value is the fulcrum point for this system.
+
+```{r}
+# Store the possible values and probabilities for the random variable X.
+x <- 0 : 3
+px <- c(0.25, 0.35, 0.1, 0.3)
+
+# Calculate the expected value.
+EX <- sum(px * x)
+EX
+
+```
+The expected value can also be thought of as the limit of the sample mean (equation). As N approaches infinity, In other words, if we could continually take random samples from the discrete distribution and take the sample mean of the resulting outcomes, we would find that this converges to E(X) as the sample size increases. As a proof of concept, consider 10,000,000 random samples from the probability mass function.
+
+```{r}
+N <- 10000000 # Specify sample size.
+set.seed(0) # Set random number generator seed.
+outcomes <- sample(x, size = N, replace = TRUE, prob = px) # Simulate outcomes.
+sorting <- data.frame(table(outcomes)) # Create data frame.
+sorting$rel.freq <- sorting$Freq / N # Add variable for relative frequency.
+barplot(sorting$rel.freq, names.arg = x, xlab = expression(X), ylab = "Proportion", main = "Relative Frequencies of Outcomes for X\nFrom 10,000,000 Samples From the Probability Mass Function", col = gray(0.75), space = 0) # Create barplot
+```
+
+Notice that a barplot of the relative frequencies looks virtually identical to a barplot based on the true probabilities. Further, if we take the mean of the 10,000,000 simulated outcomes, we get a number that is incredibly close to E(X)=1.45
+
+```{r}
+# Estimate the expected value from the simulated outcomes.
+mean(outcomes)
+```
+
+### Exercise Questions:
+
+1. If I have a sample of size 100 from X and a sample of size 10000 from X and calculate the sample mean of both, which is likely to be closer to the true expected value of X?
+
+Answer:
+
+The meaning of the sample mean converging to the expected value is that as the sample size gets bigger, the sample mean will get closer (on average) to the expected value.
+
+2. How often will the sample mean be the same as the expected value?
+
+Answer:
+
+Almost never! Even though the sample mean gets closer on average to the true expected value as the sample size increases, i.e. the variance of the sample means reduces as the sample size increases, any single sample mean is unlikely to be exactly the same as the expected value.
+
+
+
+### Variance:
+
+The variance of a random variable X is a measure of the spread of its values around the expected value and is denoted by V(X). It provides one way of representing the degree to which the values of a random variable differ from the expected value. The square root of the variance is the standard deviation and is commonly denoted by σ.
+
+Here's some R code to calculate the variance
+```{r}
+VX <- sum(px * (x - EX)^2)
+VX
+```
+
+and some R code to calculate the standard deviation
+
+```{r}
+# Calculate the standard deviation.
+std.dev <- sqrt(VX)
+std.dev
+```
+
+Taking the expected value as the “center” of a random variable’s probability distribution, the variance is a measure of how much the probability mass is spread out around this center. The formula for V(X) takes a weighted average of the squared distance from observations to the expected value. Any number that is squared is non-negative (e.g., (−3)2=(−3)(−3)=9), so this is a weighted average of only non-negative values. This means that the spread to the right of the mean (for which X−E(X) is negative) will not cancel the spread to the left of the mean (for which X−E(X) is positive) due to these distances being squared, meaning that the variance must necessarily be non-negative (i.e., necessarily V(X)≥0). Also, by using expectation, we are weighting high probability outcomes more than low probability outcomes, so their distances from the mean have a greater impact on the variance than low probability outcomes. In other words, if we could continually take random samples from the discrete distribution and take the sample variance (or sample standard deviation) of the resulting outcomes, we would find that this converges to V(X) (or σ) as the sample size increases. Considering the previously generated 10,000,000 random samples from the probability mass function, we can verify that that we get estimates for V(X) and σ that are quite close to the true values. Here's some R code that esimates the variance from the simulated outcomes.
+
+```{r}
+# Estimate the variance from the simulated outcomes.
+var(outcomes)
+```
+
+```{r}
+sd(outcomes)
+```
+
+### Discrete Uniform Distribution (U[a,b])
+
+The simplest discrete distribution is the discrete uniform distribution, which can be used to represent a scenario where discrete outcomes are equally likely.
+
+```{r}
+x <- 1 : 3
+px <- rep(1 / (range(x)[2] - range(x)[1] + 1), length(x))
+barplot(c(0, cumsum(px), 1), space = 0, col = gray(0.25), xlab = expression(x), main = "Probability Mass Function and Cumulative Distribution Function\nfor a U[1, 3] Random Variable")
+barplot(c(0, px, 0), space = 0, add = TRUE, col = gray(0.9))
+axis(side = 1, at = c(1 : (length(x) + 2)) - 0.5, labels = c(min(x) - 1, x, max(x) + 1), tick = FALSE)
+legend("topleft", fill = c(gray(0.9), gray(0.25)), legend = c("Probability mass function", "Cumulative distribution function"))
+```
+
+### Example: Rolling a fair six-sided die
+
+Suppose we roll a fair six-sided die. Let the random variable X denote the outcome of the roll. Simulations from this distribution seem to verify these formulae with roughly the same numerical results as calculating manually.
+
+```{r}
+N <- 10000000
+set.seed(0)
+outcomes <- sample(1 : 6, size = N, replace = TRUE)
+mean(outcomes)
+```
+```{r}
+var(outcomes)
+```
+We will find it useful to perform a number of operations using specific probability distributions, and R has built-in functions for many of these operations for common probability distributions. The discrete uniform distribution does not have any of these functions built into R, so we will write our own custom functions to do this while matching R’s naming convention
+```{r}
+# Probabilities using the probability mass function.
+dunifdis <- function(x, min = 0, max = 1)
+{
+  ifelse((x >= min) & (x <= max) & (round(x) == x), 1 / (max - min + 1), 0)
+}
+
+# Cumulative probabilities using the cumulative distribution.
+punifdis <- function(q, min = 0, max = 1)
+{
+  ifelse(q < min, 0, ifelse(q < max, (floor(q) - min + 1) / (max - min + 1), 1))
+}
+
+# Quantiles.
+qunifdis <- function(p, min = 0, max = 1)
+{
+  floor(p * (max - min + 1)) + min
+}
+  
+# Random outcome generation.
+runifdis <- function(n, min = 0, max = 1)
+{
+  sample(min : max, size = n, replace = TRUE)
+}
+
+```
+
+Below are some usage examples:
+
+```{r}
+# Examples using X ~ U[1, 10]:
+# P(X = 1) and P(X = 6).
+dunifdis(c(1, 6), min = 1, max = 10)
+```
+```{r}
+# P(X <= -2), P(X <= 3.5), and P(X <= 20).
+punifdis(c(-2, 3.5, 20), min = 1, max = 10)
+```
+```{r}
+# 88% quantile.
+qunifdis(0.88, min = 1, max = 10) 
+```
+```{r}
+# Five random observations.
+runifdis(5, min = 1, max = 10)
+```
+
+### Bernoulli Distribution
+
+Suppose we perform a single experiment with two possible outcomes, which we will refer to as “success” and “failure”, with “success” happening with probability p and “failure” happening with probability 1−p. This is an example of a Bernoulli trial. A random variable X∼Ber(p) takes a value of 1 in the case of success and a value of 0 in the case of failure with the parameter p fully determining the probability mass function. Here's some R code example:
+
+```{r}
+x <- 0 : 1
+px <- dbinom(x, size = 1, prob = 0.7)
+barplot(c(0, cumsum(px), 1), space = 0, col = gray(0.25), xlab = expression(x), main = "Probability Mass Function and Cumulative Distribution Function\nfor a Ber(0.7) Random Variable")
+barplot(c(0, px, 0), space = 0, add = TRUE, col = gray(0.9))
+axis(side = 1, at = c(1 : (length(x) + 2)) - 0.5, labels = c(min(x) - 1, x, max(x) + 1), tick = FALSE)
+legend("topleft", fill = c(gray(0.9), gray(0.25)), legend = c("Probability mass function", "Cumulative distribution function"))
+
+```
+We have already seen Bernoulli random variables when we consider the experiment of flipping a coin. The distribution of the related random variable X takes a value of 1 in the case of “success” (say, flipping heads) and a value of 0 in the case of “failure” (say, flipping tails). If the coin is fair, then the probability of success is p=0.5, and X∼Ber(0.5). A Bernoulli distribution is an instance of a binomial distribution (discussed shortly) where the sample size is 1 (specifically, X∼Ber(p) is the same as X∼Bin(1,p)), so functions for probabilities, quantiles, and random generation of outcomes for a Bernoulli distribution use those of the binomial distribution.
+
+```{r}
+# Examples using X ~ Ber(0.7) --> X ~ Bin(1, 0.7):
+# P(X = 0).
+dbinom(0, size = 1, prob = 0.7)
+```
+```{r}
+# P(X <= 0.7) (which should be the same as P(X = 0)).
+pbinom(0.7, size = 1, prob = 0.7)
+```
+```{r}
+# 60% and 70% quantiles.
+qbinom(c(0.6, 0.7), size = 1, prob = 0.7)
+```
+
+```{r}
+# Three random observations.
+rbinom(3, size = 1, prob = 0.7)
+
+```
+
+
+### Binomial Distributions
+
+Here, we will be using n factorial (n!). n! can be calculated in R using the factorial function:
+```{r}
+factorial(5)
+```
+```{r}
+factorial(0)
+```
+
+Combinations are ways of selecting items from a collection, such that the order of selection does not matter. (the n k vector notation). It can be calculated in R using the `choose` function:
+```{r}
+choose(5, 2)
+```
+
+### Deriving the Binomial Distribution
+
+To understand binomial distributions and binomial probability, it helps to understand binomial experiments. A binomial experiment is an experiment that has the following properties:
+
+1. The experiment consists of n repeated trials.
+
+2. Each trial can result in just two possible outcomes. We refer to these outcomes as “success” and “failure”. In other words, each trial is a Bernoulli trial.
+
+3. The probability of success, denoted by p, is the same for every trial. In other words, each trial is Ber(p) with the same probability of success p.
+
+4. The trials are independent. In other words, the outcome of one trial does not affect the outcomes of other trials.
+
+
+For example, consider the following experiment. You flip a fair coin two times and count the number of times the coin lands on heads. This is a binomial experiment because:
+
+1. The experiment consists of repeated trials—we flip a coin two times.
+2. Each trial can result in just two possible outcomes—heads or tails.
+3. The probability of success is constant—0.5 on every trial.
+4. The trials are independent—getting heads on one trial does not affect the likelihood of getting heads on other trials.
+
+A random variable X is binomially distributed if it counts the number of successes in a binomial experiment, and we denote this by X∼Bin(n,p).
+
+Here we can code the distribution in R and see the graph
+
+```{r}
+x <- 0 : 10
+px <- dbinom(x, size = 10, prob = 0.7)
+barplot(c(0, cumsum(px), 1), space = 0, col = gray(0.25), xlab = expression(x), main = "Probability Mass Function and Cumulative Distribution Function\nfor a Bin(10, 0.7) Random Variable")
+barplot(c(0, px, 0), space = 0, add = TRUE, col = gray(0.9))
+axis(side = 1, at = c(1 : (length(x) + 2)) - 0.5, labels = c(min(x) - 1, x, max(x) + 1), tick = FALSE)
+legend("topleft", fill = c(gray(0.9), gray(0.25)), legend = c("Probability mass function", "Cumulative distribution function"))
+
+```
+
+As we saw when calculating probabilities and quantiles and generating random numbers for a Bernoulli random variable, R has built-in functions for the binomial distribution.
+
+```{r}
+# Examples using X ~ Bin(10, 0.7):
+#P(X = 4), P(X = 7)
+dbinom(c(4, 7), size = 10, prob = 0.7)
+```
+```{r}
+# P(X <= 6)
+pbinom(6, size = 10, prob = 0.7)
+```
+
+```{r}
+# 47% quantile.
+qbinom(0.47, size = 10, prob = 0.7)
+```
+```{r}
+# Four random observations.
+rbinom(4, size = 10, prob = 0.7)
+```
+
+### Poisson Distribution
+
+The poisson distribution is the probability distribution that results from a Poisson experiment. a Poisson experiment is an experiment that has the following properties:
+
+1. The experiment results in outcomes that can be classified as either “success” or “failure” (i.e., the outcome must be binary).
+
+2. The average number of successes λ that occurs in a specified “region” is fixed and known.
+
+3. The probability that a success will occur is proportional to the size of the region.
+
+4. The probability that a success will occur in an extremely small region is virtually zero.
+
+Here, region is used to represent a number of possible forms, including a geographic area, period of time, a volume, length, etc.
+
+A Poisson random variable X is denoted by X∼Pois(λ). The possible values of X are 0, 1, 2, … (there is no limit to how many successes are possible, so X is not bounded by a maximum value). Let's plot the distribution function for a Pois(4) random variable.
+
+```{r}
+x <- 0 : 11
+px <- dpois(x, lambda = 4)
+barplot(c(0, cumsum(px), 1), space = 0, col = gray(0.25), xlab = expression(x), main = "Probability Mass Function and Cumulative Distribution Function\nfor a Pois(4) Random Variable")
+barplot(c(0, px, 0), space = 0, add = TRUE, col = gray(0.9))
+axis(side = 1, at = c(1 : (length(x) + 2)) - 0.5, labels = c(min(x) - 1, x, max(x) + 1), tick = FALSE)
+legend("topleft", fill = c(gray(0.9), gray(0.25)), legend = c("Probability mass function", "Cumulative distribution function"))
+```
+
+As was the case for the binomial distribution, R has built-in functions for Poisson probabilities and quantiles as well as generating random numbers.
+
+```{r}
+# Examples using X ~ Pois(4):
+# P(X = 3).
+dpois(3, lambda = 4)
+```
+
+```{r}
+# P(X <= 6).
+ppois(6, lambda = 4)
+```
+
+```{r}
+# 44% quantile.
+qpois(0.44, lambda = 4)
+```
+
+test for 5 random observations
+```{r}
+rpois(5, lambda=4)
+```
+
+Questions:
+
+1. What does `dbinom()` calculate?
+
+Answer: it calculates the probability mass function of the Binomial distribution (and can be used to calculate the probability mass function o the Bernoulli distribution when `size=1`)
+
+2. What does `ppois()` calculate?
+
+Answer: ppois() calculates the cumulative distribution function of the poisson distribution.
+
+### Simulating from Continuous Distributions, Introduction to continuous distributions and probability density functions
+
+**The probability density**
+
+(all the theory in here will be written down later)
+
+In summary, the probability density function f(y) for a continuous random variable Y mimics the probability mass function P(X) for a discrete random variable X, with the following major difference:
+
+1. the probability mass function P(X) is equal to the probability assigned to a particular value (a value at a point) of X (i.e., P(X=x)=p(x)).
+
+2. the probability density function f(y) is approximately equal to the probability that the random variable Y assumes a value within a very small interval around the point Y (a value within the interval Iy) (i.e., P(Y∈Iy)≈f(y)*length of Iy).
+
+### Continuous Uniform Distribution (U[a, b])
+
+The simplest continuous distribution is the continuous uniform distribution, which, as in the case of the discrete uniform distribution, can be used to represent a continuous random variable where all outcomes are equally likely.
+
+```{r}
+curve(dunif(x, 1, 3), 0, 5, ylim = c(0,1), xlab = expression(y), ylab = "", main = "Probability Density Function and Cumulative Distribution Function\nfor a U[1, 3] Random Variable", yaxt = "n", lwd = 2)
+curve(punif(x, 1, 3), 0, 5, col = gray(0.5), lty = 2, lwd = 2, add = TRUE)
+abline(h = c(0, 1), col = 2, lty = 3)
+axis(side = 2, at = c(0, 0.5, 1), labels = c(0, 0.5, 1))
+legend("topleft", legend = c(expression(f(y)), expression(F(y))), col = c(1, gray(0.5)), lty = 1 : 2, lwd = 2)
+```
+
+For a continuous random variable, `R` has some built in functions for the probability mass function, cumulative probabilities, quantiles, and random number generation as follows:
+
+```{r}
+# Examples using Y ~ U[1, 3]:
+# Values of f(1.5) and f(2.2)
+dunif(c(1.5, 2.2), min = 1, max = 3)
+```
+
+```{r}
+# P(Y <= 1.5)
+punif(1.5, min = 1, max = 3)
+```
+
+```{r}
+# 38% quantile.
+qunif(0.38, min = 1, max = 3) 
+```
+
+```{r}
+# Two random observations.
+runif(2, min = 1, max = 3)
+```
+
+### Exponential Distribution (Exp(λ))
+
+The Exponential distribution is used to model waiting times until the next “success” (e.g., time until the next earthquake, bus arrival, machine failure) when the number of “successes” follows a Poisson distribution. Here is the probability density function and cumulative distribution function for an Exp(2) random variable
+
+```{r}
+curve(dexp(x, rate = 2), 0, 2.5, ylim = c(0, 2.1), xlab = expression(y), ylab = "", main = "Probability Density Function and Cumulative Distribution Function\nfor an Exp(2) Random Variable", yaxt = "n", lwd = 2)
+curve(pexp(x, rate = 2), -0.1, 2.5, col = gray(0.5), lty = 2, lwd = 2, add = TRUE)
+abline(h = c(0, 1), col = 2, lty = 3)
+axis(side = 2, at = c(0, 1), labels = c(0, 1))
+legend("topright", legend = c(expression(f(y)), expression(F(y))), col = c(1, gray(0.5)), lty = 1 : 2, lwd = 2)
+```
+For an exponential random variable, R has built-in functions for the probability mass function, cumulative probabilities, quantiles, and random number generation as follows:
+
+```{r}
+# Examples using Y ~ Exp(2):
+# Value of f(4.7)
+dexp(4.7, rate = 2)
+```
+```{r}
+# P(Y <= 0.8)
+pexp(0.8, rate = 2)
+```
+
+```{r}
+# 40% quantile.
+qexp(0.4, rate = 2) 
+```
+
+```{r}
+#One random observation.
+rexp(1, rate = 2)
+```
+### Erlang Distribution (Erlang(k, λ))
+
+The Erland Distribution is a generalisation of the exponential distribution and represents the waiting time to the kth “success” when the waiting times for each individual “success” follow an exponential distribution and are independent. This means that a random variable Y∼Erlang(k,λ) can be expressed as a sum of k independent Exp(λ) random variables. R does not have built-in functions for the Erlang distribution, but we will produce a function to randomly generate observations from an Erlang(k, λ) distribution.
+
+```{r}
+rerlang <-function(n, k, lambda)
+{
+  # Initialise a vector in which to store the 'n' simulated Erlang waiting times.
+  waiting.times <- rep(NA, n)
+  
+  # Generate 'k' exponential random variables and sum them to produce the waiting time to the kth "success".
+  for(i in 1 : n)
+    waiting.times[i] <- sum(rexp(k, rate = lambda))
+
+  return(waiting.times)
+}
+
+# Three random observations.
+rerlang(3, k = 3, lambda = 2)
+```
+
+### Normal Distribution
+
+Arguably the most important continuous distribution is the normal distribution, due to the Central Limit Theorem (CLT). Roughly, the CLT states that the distribution of the sum (or average) of a large number of independent, identically distributed (i.e., follow the exact same probability distribution with identical parameters) random variables will be approximately normal, regardless of the underlying probability distribution of the random variables. The importance of the central limit theorem is hard to overstate. Indeed, it is the reason that many statistical procedures work.
+
+Here's the probability density function and cumulative distribution function for an N(0, 1) Random variable. 
+
+```{r}
+curve(dnorm(x), -3, 3, ylim = c(0, 1), xlab = expression(y), ylab = "", main = "Probability Density Function and Cumulative Distribution Function\nfor a N(0, 1) Random Variable", yaxt = "n", lwd = 2)
+curve(pnorm(x), -3, 3, col = gray(0.5), lty = 2, lwd = 2, add = TRUE)
+abline(h = c(0, 1), col = 2, lty = 3)
+axis(side = 2, at = c(0, 1), labels = c(0, 1))
+legend("topleft", legend = c(expression(f(y)), expression(F(y))), col = c(1, gray(0.5)), lty = 1 : 2, lwd = 2)
+```
+In other words, the parameters μ and σ2 correspond exactly to the expected value and variance for the distribution.
+For a normal random variable, R has built-in functions for the probability mass function, cumulative probabilities, quantiles, and random number generation as follows:
+
+```{r}
+# Examples using Y ~ N(0, 1):
+# Value of f(2.1)
+dnorm(2.1, mean = 0, sd = 1)
+```
+```{r}
+# P(Y <= 1.5)
+pnorm(1.5, mean = 0, sd = 1)
+```
+```{r}
+# P(Y <= 1.5)
+pnorm(1.5, mean = 0, sd = 1)
+```
+```{r}
+# Four random observations.
+rnorm(4, mean = 0, sd = 1)
+```
+
+Note that the Normal distribution is also sometimes called the Gaussian distribution, after Carl Friedrich Gauss who proposed it in a 1823 monograph.
+
+### Chi-Squared Distribution
+
+A random variable Y is said to have a chi-squared distribution with k degrees of freedom if it can be presented as a sum of k independent random variables.  It is commonly used in goodness-of-fit tests to see how well data fit a hypothesised probability distribution. For a chi-squared random variable, R has built-in functions for the probability mass function, cumulative probabilities, quantiles, and random number generation as follows:
+
+```{r}
+curve(dchisq(x, df = 3), 0, 8, ylim = c(0, 1), xlab = expression(y), ylab = "", main = expression(paste("PDF and CDF for a ", chi[k]^2, " Random Variable")), yaxt = "n", lwd = 2)
+curve(pchisq(x, df = 3), -0.1, 8, col = gray(0.5), lty = 2, lwd = 2, add = TRUE)
+abline(h = c(0, 1), col = 2, lty = 3)
+axis(side = 2, at = c(0, 1), labels = c(0, 1))
+legend("topleft", legend = c(expression(f(y)), expression(F(y))), col = c(1, gray(0.5)), lty = 1 : 2, lwd = 2)
+```
+
+For a chi-squared random variable, R has built-in functions for the probability mass function, cumulative probabilities, quantiles, and random number generation as follows:
+```{r}
+# Examples using Y ~ Chi-Square(3):
+# Value of f(1.2)
+dchisq(1.2, df = 3)
+```
+
+```{r}
+# P(Y <= 6)
+pchisq(6, df = 3)
+```
+```{r}
+# Three random observation.
+rchisq(3, df = 3)
+```
+
+### Simulating from Multivariate Distributions
+
+All the examples above are one-dimensional distributions, in that a single draw from any one of those random variables produces a single value. For the applications demonstrated in the next few weeks, we will also need multivariate distributions, for which a single draw produces a vector of values.
+
+
+### Multinomial Distribution (Multinomial(n, p))
+
+The multinomial distribution is immensely useful for simulating categorical data. It is an extension of the binomial distribution to more than 2 possible outcomes for a single attempt. Instead of just having “success” and “failure”, with probabilities p and 1−p, we have m outcomes labelled with probabilities p1,…,pm that add up to 1.
+
+For example, a multinomial with 3 possible outcomes could have probabilities p1=0.2, p2=0.3 and p3=0.5.
+
+
+If we make n attempts, then the observed value of the random variable is no longer just a single value indicating the number of successes as for the binomial. Instead, the observed value is a vector giving the number of instances of each outcome over all the attempts: x=(x1,x2,…,xm) where the xi values add up to n.
+
+This type of distribution is particularly useful for simulating categorical data. The Bernoulli and Binomial distributions are special cases of the Multinomial distribution. It is a discrete multinomial distribution.
+
+### Dirichlet Distribution 
+
+The Dirichlet distribution is for random variables that are vectors composed of values between 0 and 1 that add up to 1. It is therefore useful for modelling a set of probabilities for mutually exclusive options, such as the probabilities of categories of a categorical variable, or frequencies of different genetic variants at a particular location on the genome. The Dirichlet distribution for a random vector X is controlled by a vector of parameters, α: one parameter for each element of X. In many cases, the parameters are simplified by setting all of them to be the same value, i.e. α=(α,α,…,α). The Dirichlet distribution is not available as a built-in R function but it is simple to construct a simulation from a Dirichlet distribution by generating from a set of Gamma distributions and then normalising the output vector so that it adds up to 1.
+
+```{r}
+rDirichlet <- function(ndraw, alpha){
+    gamdraw <- rgamma(ndraw, shape=alpha, rate=1)
+    gamdraw / sum(gamdraw)
+}
+```
+
+### Multivariate Normal Distribution
+
+The Multivariate Normal Distribution is the most common multivariate distribution in statistics and machine learning. It is a natural extension of the normal distribution to multiple dimensions: if we only look at the individual values from one of the dimensions at a time, their distribution will be a one-dimensional normal distribution. We can visualise a 2-dimensional multivariate normal as an oval-shaped mountain peak, which we will simulate using the mvnorm() function from the MASS package. We need to specify μ , the expected values for both dimensions, and Σ , the covariance matrix that gives us not only the variances for the two dimensions but also their correlation. We’ll simulate a couple of different multivariate normal distributions so you can see the effect of changing μ and Σ:
+
+```{r}
+library(MASS)
+set.seed(0)
+par(mgp=c(1.8,0.8,0), mar=c(3,3,3,0.5))
+vals1 <- mvrnorm(n=1000, mu=c(1,0), Sigma=matrix(c(1,0.4,0.4,2), nrow=2))
+plot(vals1[,1],vals1[,2], xlab=expression(x[1]), ylab=expression(x[2]))
+```
+Change around the values of the parameters:
+```{r}
+vals2 <- mvrnorm(n=1000, mu=c(-1,0.5), Sigma=matrix(c(1.5,-0.7,-0.7,0.5), nrow=2))
+plot(vals2[,1],vals2[,2], xlab=expression(x[1]), ylab=expression(x[2]))
+```
+The second distribution has higher magnitude of correlation so the oval is narrower across its width, and it is negatively correlated so the oval tilts from top left to bottom right, unlike the first distribution.
+
+Let’s take the cross-sections by calculating histograms of the x1 and x2 values from each plot:
+```{r}
+par(mfrow=c(2,2), mar=c(4,3,0.5,0.5), mgp=c(1.8,0.8,0))
+hist(vals1[,1], xlab=expression(x[1]),main="")
+hist(vals1[,2], xlab=expression(x[2]),main="")
+hist(vals2[,1], xlab=expression(x[1]),main="")
+hist(vals2[,2], xlab=expression(x[2]),main="")
+```
+
+The variances for the two dimensions of a distribution are the diagonal values of Σ for that distribution. The correlations are the off-diagonal elements, and because the correlation of x1
+with x2 is the same as the correlation of x2 with x1, the covariance matrix Σ must be symmetric.
